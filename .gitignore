@@ -1,0 +1,32 @@
+# LibreOffice temporary files
+*.bak
+*.~lock.*
+~$*
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Archives
+*.zip
+*.tar.gz
+
+# Swap/Backup
+*.swp
+*.swo
+*.tmp
+*.temp
+*.backup
+
+# JetBrains
+.idea/
+*.iml
+out/
+
+# Python cache (если когда-нибудь UNO подключишь)
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Logs
+*.log
