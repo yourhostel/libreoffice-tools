@@ -1,4 +1,9 @@
 # libreoffice-tools
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+![Repo size](https://img.shields.io/github/repo-size/tysser/libreoffice-tools)
+![Last commit](https://img.shields.io/github/last-commit/tysser/libreoffice-tools)
+
 **LibreOffice macros for UI forms and automation.**
 
 ## Features
