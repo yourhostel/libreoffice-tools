@@ -18,7 +18,7 @@
 
 ```bash
 mkdir -p basic/Standard && \
-touch basic/Standard/{Fields.bas,Settlement.bas,Buttons.bas,Images.bas}
+touch basic/Standard/{Fields.bas,CreateRecord.bas,Buttons.bas,Images.bas}
 ```
 
 ```txt
@@ -35,3 +35,26 @@ libreoffice-tools
 ```
 
 ![Знімок екрана з 2025-06-27 13-07-00.png](screenshots/%D0%97%D0%BD%D1%96%D0%BC%D0%BE%D0%BA%20%D0%B5%D0%BA%D1%80%D0%B0%D0%BD%D0%B0%20%D0%B7%202025-06-27%2013-07-00.png)
+
+# Python
+
+```bash
+# Перевстановити з пайтон провайдером якщо потрібно
+Перевстановити з пайтон провайдером якщо потрібно
+sudo snap remove libreoffice
+sudo apt remove --purge libreoffice*
+sudo add-apt-repository ppa:libreoffice/ppa
+sudo apt update
+sudo apt install libreoffice libreoffice-script-provider-python
+
+# Перевірити пайтон провайдер
+dpkg -l | grep libreoffice-script-provider-python
+
+# Якщо потрібні локалі
+# Український інтерфейс
+sudo apt install libreoffice-l10n-uk
+# Російський інтерфейс
+sudo apt install libreoffice-l10n-ru
+# Усі локалі
+sudo apt install libreoffice-l10n-*
+```

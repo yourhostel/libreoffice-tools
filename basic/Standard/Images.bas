@@ -1,5 +1,7 @@
 REM  *****  BASIC  *****
 
+' Images.bas
+
 Sub AddLogo(oDialogModel As Object, _
                   ByVal iName As String, _
                   ByVal PositionX As Integer, _
