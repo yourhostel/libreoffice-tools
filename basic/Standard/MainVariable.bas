@@ -3,7 +3,9 @@ REM  *****  BASIC  *****
 ' MainVariable.bas
 
 Public Const HOSTEL = "Саперка"
-Public Const NEGET = 123
+Public Const VALID_DURATIONS = "1;2;3;4;5;6;7;14;21;28"
+Public Const NEGET_RULES = 123
+Public Const LIST_OF_CODES = "1;2;3;4;5;6;8;9;10;11"
 
 ' ==== Повертає мапу відповідності полів форми до назв колонок таблиці ====
 Function GetFieldToColumnMap() As Variant

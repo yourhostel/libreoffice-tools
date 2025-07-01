@@ -115,15 +115,7 @@ Sub InsertButton_actionPerformed(oEvent As Object)
             allOk = False
         End If
 
-        If Not DateRangeValidation(oSel, oDialog) Then
-            allOk = False
-        End If
-
         If Not PersonDataValidation(oDialog) Then
-    		allOk = False
-		End If
-
-		If Not CodeValidation(oDialog) Then
     		allOk = False
 		End If
 
@@ -271,29 +263,6 @@ Sub OffsetReasonInsertion(oSel As Object, oDialog As Object)
 
 End Sub
 
-' ==== Перевірка правильності значення Duration ====
-' Перевіряє, чи значення у полі DurationField належить до допустимого списку:
-' 1, 2, 3, 4, 5, 6, 7, 14, 21 або 28
-' Повертає:
-' - True — якщо значення допустиме
-' - False — якщо значення некоректне (виводиться повідомлення про помилку)
-Function DateRangeValidation(oSel As Object, oDialog As Object) As Boolean
-    ' ==== Читаємо значення поля Duration ====
-    Dim nDuration As Long
-    nDuration = CLng(oDialog.getControl("DurationField").getText())
-
-    ' ==== Перевірка значення ====
-    Select Case nDuration
-        Case 1 To 7, 14, 21, 28
-            ' Допустимо
-            DateRangeValidation = True
-        Case Else
-            ' Помилка
-            ShowDialog("Увага!", "Допустимі значення кількості днів: 1–7, 14, 21 або 28")
-            DateRangeValidation = False
-    End Select
-End Function
-
 ' ==== Запис діапазону дат у таблицю ====
 ' Обчислює дату заселення (з урахуванням зсуву Offset)
 ' та дату виселення (дата заселення + Duration)
@@ -309,7 +278,7 @@ Sub DateRangeInsertion(oSel As Object, oDialog As Object)
     ' ==== Читаємо значення Offset і Duration ====
     Dim nOffset As Integer, nDuration As Integer
     nOffset = Val(oDialog.getControl("OffsetField").getText())
-    nDuration = Val(oDialog.getControl("DurationField").getText())
+    nDuration = Val(oDialog.getControl("DurationCombo").getText())
 
     ' ==== Отримуємо таблицю і адресу ====
     Dim oSheet As Object, oCursorAddress As Object
@@ -365,7 +334,7 @@ Sub DateRangeInsertion(oSel As Object, oDialog As Object)
 
     ' ==== Якщо захищений — знімаємо захист ====
     If bWasProtected Then
-        oSheet.unprotect(NEGET)
+        oSheet.unprotect(NEGET_RULES)
     End If
 
     If nOffset <> 0 Then
@@ -374,7 +343,7 @@ Sub DateRangeInsertion(oSel As Object, oDialog As Object)
 
     ' ==== Повертаємо захист назад ====
     If bWasProtected Then
-        oSheet.protect(NEGET)
+        oSheet.protect(NEGET_RULES)
     End If
 End Sub
 
@@ -435,27 +404,6 @@ Sub PersonDataInsertion(oSel As Object, oDialog As Object)
     oSheet.getCellByPosition(2, oSel.CellAddress.Row).setString(sFullName)
 End Sub
 
-' ==== Перевіряє правильність значення поля CodeCombo ====
-' Повертає True — якщо значення входить у перелік допустимих кодів: 1, 2, 3, 4, 5, 6, 8, 9, 10, 11
-' Повертає False — якщо код відсутній або некоректний
-' У разі помилки виводить повідомлення через ShowDialog
-Function CodeValidation(oDialog As Object) As Boolean
-    ' ==== Отримання значення з ComboBox ====
-    Dim sCode As String
-    sCode = Trim(oDialog.getControl("CodeCombo").getText())
-
-    ' ==== Перевірка ====
-    Select Case sCode
-        Case "1", "2", "3", "4", "5", "6", "8", "9", "10", "11"
-            ' Допустиме значення
-            CodeValidation = True
-        Case Else
-            ' Недопустиме значення
-            ShowDialog("Увага!", "Поле 'Код' повинно містити значення: 1, 2, 3, 4, 5, 6, 8, 9, 10 або 11.")
-            CodeValidation = False
-    End Select
-End Function
-
 ' ==== Розраховує суму оплати за кількістю днів ====
 ' Зчитує значення полів CodeCombo та DurationField
 ' Отримує відповідний лист з цінами за кодом (аркуш price1, price2 ... price11)
@@ -469,7 +417,7 @@ Sub CalculatePaidFieldByDuration(oEvent)
 
     ' ==== Отримання Duration ====
     Dim nDuration As Long
-    nDuration = Val(oDialog.getControl("DurationField").getText())
+    nDuration = Val(oDialog.getControl("DurationCombo").getText())
 
     ' ==== Отримання значення Code ====
     Dim sCode As String
@@ -719,9 +667,9 @@ Function CreateDialog() As Object
 
     Dim oDialog As Object
     Dim oDialogModel As Object
-    Dim ListOfCodes, PriceWithSheet As String
-
-    ListOfCodes = "1;2;3;4;5;6;8;9;10;11"
+    Dim PriceWithSheet As String
+    Dim sDateTime As String
+    sDateTime = Format(Now, "DD.MM.YYYY HH:MM:SS")
     PriceWithSheet = ThisComponent.Sheets.getByName("price1").getCellByPosition(1, 1).getValue()
     oDialog = CreateUnoService("com.sun.star.awt.UnoControlDialog")
     oDialogModel = CreateUnoService("com.sun.star.awt.UnoControlDialogModel")
@@ -766,7 +714,7 @@ Function CreateDialog() As Object
 ' ==============================================
 
     ' ==== Поточна дата і час ====
-    Call FieldTemplate(oDialogModel, "CurrentDate", "Поточні дата і час:", 10, 15, Format(Now, "DD.MM.YYYY HH:MM:SS"), 65, 65, True)
+    Call FieldTemplate(oDialogModel, "CurrentDate", "Поточні дата і час:", 10, 15, sDateTime, 65, 65, True)
 
     ' ==== Зсув у днях ====
     Call FieldTemplate(oDialogModel,      "Offset",        "Зсув у днях:", 10, 45, "0", 50, 50)
@@ -775,15 +723,16 @@ Function CreateDialog() As Object
     Call FieldTemplate(oDialogModel,      "Reason",      "Причина зсуву:", 80, 45, "", 50, 60)
 
     ' ==== Кількість днів ====
-    Call FieldTemplate(oDialogModel,    "Duration",     "Кількість днів:", 160, 45, "1", 50, 50)
-    Call AddTextFieldsDurationListener(oDialog)
+    'Call FieldTemplate(oDialogModel,    "Duration",     "Кількість днів:", 160, 45, "1", 50, 50)
+    Call ComboBoxTemplate(oDialogModel, "Duration", "Кількість днів:", 160, 45, "1", 50, 50, VALID_DURATIONS)
+    Call AddDurationComboListeners(oDialog)
      ' ==== Персональні дані ====
     Call FieldTemplate(oDialogModel,    "LastName",           "Прізвище:", 10,  75, "", 70, 100)
     Call FieldTemplate(oDialogModel,   "FirstName",               "Ім'я:", 125,  75, "", 70, 100)
     Call FieldTemplate(oDialogModel,  "Patronymic",        "По батькові:", 240,  75, "_", 70, 100)
 
     ' ==== Фінансові поля ====
-    Call ComboBoxTemplate(oDialogModel,     "Code",                "Код:", 10, 105, "1", 60, 60, ListOfCodes)
+    Call ComboBoxTemplate(oDialogModel,     "Code",                "Код:", 10, 105, "1", 60, 60, LIST_OF_CODES)
     Call AddComboListeners(oDialog)
     Call FieldTemplate(oDialogModel, 	    "Paid",           "Сплачено:", 140, 105, PriceWithSheet, 70, 60)
     Call FieldTemplate(oDialogModel, 	 "Expense",            "Видаток:", 210, 105, "0", 70, 60)

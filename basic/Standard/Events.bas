@@ -131,7 +131,7 @@ Sub Combo_itemStateChanged(oEvent)
     oControl.Height = 15 ' Скрываем список
 
     CalculatePaidFieldByDuration(oEvent)
-    LockFields(oEvent, "DurationField;OffsetField")
+    'LockFields(oEvent, "OffsetField")
 End Sub
 
 ' === Звільнення ресурсів для ComboBox ===
@@ -139,43 +139,81 @@ End Sub
 Sub Combo_disposing(oEvent)
 End Sub
 
-' === Підключає слухач для поля DurationField ===
-Sub AddTextFieldsDurationListener(oDialog As Object)
+' ==== Підключає обробники подій для DurationCombo ====
+' Відповідає за відкриття/закриття списку та перерахунок поля PaidField.
+' Реалізує інтерфейси:
+' — com.sun.star.awt.XMouseListener (відкриття списку по кліку)
+' — com.sun.star.awt.XItemListener (згортання списку після вибору)
+' Алгоритм:
+' — При натисканні миші → розгортає список (висота 110)
+' — При виборі значення → згортає список (висота 15) і перераховує PaidField
+Sub AddDurationComboListeners(oDialog As Object)
+    Dim oCombo As Object
+    oCombo = oDialog.getControl("DurationCombo")
 
-    Dim oDurationControl As Object
-    Set oDurationControl = oDialog.getControl("DurationField")
+    ' ==== Слухач миші для відкриття списку ====
+    Dim oMouseListener As Object
+    oMouseListener = CreateUnoListener("DurationCombo_", "com.sun.star.awt.XMouseListener")
+    oCombo.addMouseListener(oMouseListener)
 
-    ' ==== Створюємо слухача ====
-    Dim oListener As Object
-    Set oListener = CreateUnoListener("DurationField_", "com.sun.star.awt.XTextListener")
-
-    ' ==== Підключаємо ====
-    oDurationControl.addTextListener(oListener)
-
+    ' ==== Слухач вибору елементу ====
+    Dim oItemListener As Object
+    oItemListener = CreateUnoListener("DurationCombo_", "com.sun.star.awt.XItemListener")
+    oCombo.addItemListener(oItemListener)
 End Sub
 
-' === Обробка зміни тексту у полі DurationField ===
-Sub DurationField_textChanged(oEvent)
 
-    ' Отримуємо діалог
+' ==== Обробка натискання на DurationCombo ====
+' Відповідає за розгортання списку шляхом збільшення висоти ComboBox
+Sub DurationCombo_mousePressed(oEvent)
+    Dim oControl As Object
+    oControl = oEvent.Source.getModel()
+    oControl.Height = 110 ' Відкриваємо список
+End Sub
+
+' === Обробка відпускання кнопки миші ===
+Sub DurationCombo_mouseReleased(oEvent)
+    ' Не використовується. Обов’язковий метод для XMouseListener.
+End Sub
+
+' ==== Обробка наведення курсора ====
+Sub DurationCombo_mouseEntered(oEvent)
+    ' Не використовується. Обов’язковий метод для XMouseListener.
+End Sub
+
+' ==== Обробка виведення курсора ====
+Sub DurationCombo_mouseExited(oEvent)
+    ' Не використовується. Обов’язковий метод для XMouseListener.
+End Sub
+
+' ==== Обробка зміни вибраного елементу у DurationCombo ====
+' При виборі значення:
+' — згортає список (зменшує висоту)
+' — перераховує поле PaidField на основі обраної тривалості (Duration) і аркуша price1
+Sub DurationCombo_itemStateChanged(oEvent)
+    Dim oControl As Object
     Dim oDialog As Object
-    Set oDialog = oEvent.Source.getContext()
+    oDialog = oEvent.Source.getContext()
+    oControl = oEvent.Source.getModel()
 
-    ' Отримуємо значення Duration
+    ' Згортаємо ComboBox
+    oControl.Height = 15
+
+    ' ==== Отримання значення Duration ====
     Dim nDuration As Long
-    nDuration = Val(oDialog.getControl("DurationField").getText())
+    nDuration = Val(oDialog.getControl("DurationCombo").getText())
 
-    ' ==== Відкриваємо лист з цінами ====
+    ' ==== Відкриття аркуша цін ====
     Dim oDoc As Object, oSheet As Object
-    Set oDoc = ThisComponent
-    Set oSheet = oDoc.Sheets.getByName("price1")
+    oDoc = ThisComponent
+    oSheet = oDoc.Sheets.getByName("price1")
 
     ' ==== Пошук ціни ====
     Dim iRow As Long
     Dim dPrice As Double
     dPrice = 0
 
-    For iRow = 1 To 10 ' Рядки з 2 по 11 (індексація з 0)
+    For iRow = 1 To 10
         If oSheet.getCellByPosition(0, iRow).getValue() = nDuration Then
             dPrice = oSheet.getCellByPosition(1, iRow).getValue()
             Exit For
@@ -184,10 +222,9 @@ Sub DurationField_textChanged(oEvent)
 
     ' ==== Запис у поле Paid ====
     oDialog.getControl("PaidField").setText(CStr(dPrice))
-
 End Sub
 
-' === Звільнення ресурсів ===
-Sub DurationField_disposing(oEvent)
-    ' Порожньо. Необхідно для відповідності інтерфейсу.
+' ==== Звільнення ресурсів для DurationCombo ====
+Sub DurationCombo_disposing(oEvent)
+    ' Порожньо. Обов’язково для відповідності інтерфейсу UNO.
 End Sub
