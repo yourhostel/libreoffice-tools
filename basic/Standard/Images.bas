@@ -2,6 +2,12 @@ REM  *****  BASIC  *****
 
 ' Images.bas
 
+' =====================================================
+' === Процедура AddLogo ===============================
+' =====================================================
+' → Додає до діалогу картинку (логотип) за вказаними координатами та розмірами.
+' → Підтягує файл з диска й вставляє у форму як ImageControl.
+' → Масштабує зображення, щоб воно вмістилося у заданих розмірах.
 Sub AddLogo(oDialogModel As Object, _
                   ByVal iName As String, _
                   ByVal PositionX As Integer, _
@@ -17,8 +23,6 @@ Sub AddLogo(oDialogModel As Object, _
     oImage.Width = Width
     oImage.Height = Height
     oImage.ScaleImage = True
-    oImage.ImageURL = ConvertToURL("file:///home/tysser/Documents/LibreOfficeAssets/logo_1.png")
-
+    oImage.ImageURL = ConvertToURL(PATH_TO_LOGO)
     oDialogModel.insertByName(iName, oImage)
-
 End Sub

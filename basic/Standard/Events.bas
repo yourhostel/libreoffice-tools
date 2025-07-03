@@ -2,9 +2,12 @@ REM  *****  BASIC  *****
 
 ' Events.bas
 
-' ==== Слухач для зміни тексту у полі OffsetField ====
-' Реалізує інтерфейс com.sun.star.awt.XTextListener
-' Відповідає за динамічне відображення або приховування поля ReasonField
+' =====================================================
+' === Процедура AddTextFieldsOffsetListener ===========
+' =====================================================
+' → Додає слухача змін у полі OffsetField.
+' → Відображає або ховає поле ReasonField залежно від значення OffsetField.
+' → Використовується для динамічного контролю видимості додаткових полів.
 Sub AddTextFieldsOffsetListener(oDialog As Object)
 
     ' ==== Отримання посилань на елементи ====
@@ -31,15 +34,14 @@ Sub AddTextFieldsOffsetListener(oDialog As Object)
 
     ' ==== Підключення слухача ====
     oOffsetControl.addTextListener(oListener)
-
 End Sub
 
-' === Обробка зміни тексту у полі OffsetField ===
-' Реалізує метод інтерфейсу com.sun.star.awt.XTextListener
-' Відповідає за динамічне відображення або приховування поля ReasonField і мітки ReasonLabel
-' Логіка:
-'   — Якщо значення Offset ≠ 0 → поле ReasonField і мітка ReasonLabel стають видимими
-'   — Якщо значення Offset = 0 → поле ReasonField і мітка ReasonLabel приховуються
+' =====================================================
+' === Процедура OffsetField_textChanged ===============
+' =====================================================
+' → Викликається при зміні тексту у полі OffsetField.
+' → Відображає або ховає поле ReasonField та його мітку залежно від значення.
+' → Реалізує метод інтерфейсу com.sun.star.awt.XTextListener.
 Sub OffsetField_textChanged(oEvent)
     Dim oDialog As Object
     Set oDialog = oEvent.Source.getContext()
@@ -62,17 +64,21 @@ Sub OffsetField_textChanged(oEvent)
     End If
 End Sub
 
-' ==== Обов’язковий метод для інтерфейсу XTextListener ====
-' Викликається при видаленні слухача або знищенні елемента
-' Не виконує дій. Забезпечує відповідність UNO API.
+' =====================================================
+' === Процедура OffsetField_disposing =================
+' =====================================================
+' → Викликається при видаленні слухача OffsetField.
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
 Sub OffsetField_disposing(oEvent)
-    ' Порожньо. Необхідно для відповідності інтерфейсу.
 End Sub
 
-
-' === Додає обробники подій для ComboBox ===
-' oDialog — екземпляр діалогу, у якому знаходиться ComboBox
-Sub AddComboListeners(oDialog As Object)
+' =====================================================
+' === Процедура AddCodeComboListeners =================
+' =====================================================
+' → Додає слухачі подій до ComboBox "CodeCombo".
+' → Відкриває список при кліку та згортає після вибору.
+' → Також викликає оновлення залежних полів.
+Sub AddCodeComboListeners(oDialog As Object)
 
     ' Отримання екземпляру ComboBox за іменем
     Dim oCombo As Object
@@ -81,72 +87,81 @@ Sub AddComboListeners(oDialog As Object)
     ' === Слухач миші для події натискання ===
     ' Відповідає за відкриття списку шляхом зміни висоти
     Dim oMouseListener As Object
-    oMouseListener = CreateUnoListener("Combo_", "com.sun.star.awt.XMouseListener")
+    oMouseListener = CreateUnoListener("CodeCombo_", "com.sun.star.awt.XMouseListener")
     oCombo.addMouseListener(oMouseListener)
 
     ' === Слухач вибору елементу зі списку ===
     ' Відповідає за згортання списку після вибору елементу
     Dim oItemListener As Object
-    oItemListener = CreateUnoListener("Combo_", "com.sun.star.awt.XItemListener")
+    oItemListener = CreateUnoListener("CodeCombo_", "com.sun.star.awt.XItemListener")
     oCombo.addItemListener(oItemListener)
-
 End Sub
 
-' === Обробка натискання кнопки миші на ComboBox ===
-' Збільшує висоту ComboBox для візуального розкриття списку
-Sub Combo_mousePressed(oEvent)
+' =====================================================
+' === Процедура CodeCombo_mousePressed ================
+' =====================================================
+' → Викликається при натисканні на ComboBox "CodeCombo".
+' → Збільшує висоту для візуального відкриття списку.
+Sub CodeCombo_mousePressed(oEvent)
     Dim oControl As Object
-    ' Отримання моделі елемента керування
     oControl = oEvent.Source.getModel()
-    ' Зміна висоти на 60 для розкриття списку
     oControl.Height = 110 ' Підняли висоту
 End Sub
 
-' === Обробка відпускання кнопки миші ===
-' Не використовується, необхідно для відповідності інтерфейсу
-Sub Combo_mouseReleased(oEvent)
-    ' Можна нічого
+' =====================================================
+' === Процедура CodeCombo_mouseReleased ===============
+' =====================================================
+' → Викликається при відпусканні кнопки миші з ComboBox "CodeCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
+Sub CodeCombo_mouseReleased(oEvent)
 End Sub
 
-' === Обробка наведення курсора на ComboBox ===
-' Порожньо. Метод обов’язковий для XMouseListener.
-Sub Combo_mouseEntered(oEvent)
+' =====================================================
+' === Процедура CodeCombo_mouseEntered ================
+' =====================================================
+' → Викликається при наведенні курсора на ComboBox "CodeCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
+Sub CodeCombo_mouseEntered(oEvent)
 End Sub
 
-' === Обробка виведення курсора за межі ComboBox ===
-' Порожньо. Метод обов’язковий для XMouseListener.
-Sub Combo_mouseExited(oEvent)
+' =====================================================
+' === Процедура CodeCombo_mouseExited =================
+' =====================================================
+' → Викликається при виведенні курсора з ComboBox "CodeCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
+Sub CodeCombo_mouseExited(oEvent)
 End Sub
 
-' === Обробка зміни вибраного елемента в ComboBox ===
-' Після вибору елемента список згортається шляхом зменшення висоти
-Sub Combo_itemStateChanged(oEvent)
+' =====================================================
+' === Процедура CodeCombo_itemStateChanged ============
+' =====================================================
+' → Викликається при зміні вибору в ComboBox "CodeCombo".
+' → Згортає список, оновлює пов’язані поля та перевіряє зайнятість місця.
+Sub CodeCombo_itemStateChanged(oEvent)
     Dim oControl As Object
     Dim oDialog As Object
-    ' Отримуємо діалог з контексту події
     oDialog = oEvent.Source.getContext()
-    ' Отримання моделі елемента керування
     oControl = oEvent.Source.getModel()
-    ' Зміна висоти на 15 для згортання списку
-    oControl.Height = 15 ' Скрываем список
-
-    CalculatePaidFieldByDuration(oEvent)
-    'LockFields(oEvent, "OffsetField")
+    oControl.Height = 15 ' Скриваємо список
+    Call CalculatePaidFieldWithPlace(oDialog)
+    Call UpdatePlaceCombo(oDialog)
+    Call CheckOccupiedPlace(oDialog)
 End Sub
 
-' === Звільнення ресурсів для ComboBox ===
-' Порожній метод. Необхідний для відповідності інтерфейсу.
-Sub Combo_disposing(oEvent)
+' =====================================================
+' === Процедура CodeCombo_disposing ===================
+' =====================================================
+' → Викликається при видаленні слухача з ComboBox "CodeCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
+Sub CodeCombo_disposing(oEvent)
 End Sub
 
-' ==== Підключає обробники подій для DurationCombo ====
-' Відповідає за відкриття/закриття списку та перерахунок поля PaidField.
-' Реалізує інтерфейси:
-' — com.sun.star.awt.XMouseListener (відкриття списку по кліку)
-' — com.sun.star.awt.XItemListener (згортання списку після вибору)
-' Алгоритм:
-' — При натисканні миші → розгортає список (висота 110)
-' — При виборі значення → згортає список (висота 15) і перераховує PaidField
+' =====================================================
+' === Процедура AddDurationComboListeners =============
+' =====================================================
+' → Додає слухачі подій до ComboBox "DurationCombo".
+' → Відкриває список при кліку та згортає після вибору.
+' → Перераховує вартість у полі PaidField.
 Sub AddDurationComboListeners(oDialog As Object)
     Dim oCombo As Object
     oCombo = oDialog.getControl("DurationCombo")
@@ -162,69 +177,138 @@ Sub AddDurationComboListeners(oDialog As Object)
     oCombo.addItemListener(oItemListener)
 End Sub
 
-
-' ==== Обробка натискання на DurationCombo ====
-' Відповідає за розгортання списку шляхом збільшення висоти ComboBox
+' =====================================================
+' === Процедура DurationCombo_mousePressed ============
+' =====================================================
+' → Викликається при натисканні на ComboBox "DurationCombo".
+' → Збільшує висоту для візуального відкриття списку.
 Sub DurationCombo_mousePressed(oEvent)
     Dim oControl As Object
     oControl = oEvent.Source.getModel()
     oControl.Height = 110 ' Відкриваємо список
 End Sub
 
-' === Обробка відпускання кнопки миші ===
+' =====================================================
+' === Процедура DurationCombo_mouseReleased ===========
+' =====================================================
+' → Викликається при відпусканні кнопки миші з ComboBox "DurationCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
 Sub DurationCombo_mouseReleased(oEvent)
-    ' Не використовується. Обов’язковий метод для XMouseListener.
 End Sub
 
-' ==== Обробка наведення курсора ====
+' =====================================================
+' === Процедура DurationCombo_mouseEntered ============
+' =====================================================
+' → Викликається при наведенні курсора на ComboBox "DurationCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
 Sub DurationCombo_mouseEntered(oEvent)
-    ' Не використовується. Обов’язковий метод для XMouseListener.
 End Sub
 
-' ==== Обробка виведення курсора ====
+' =====================================================
+' === Процедура DurationCombo_mouseExited =============
+' =====================================================
+' → Викликається при виведенні курсора з ComboBox "DurationCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
 Sub DurationCombo_mouseExited(oEvent)
-    ' Не використовується. Обов’язковий метод для XMouseListener.
 End Sub
 
-' ==== Обробка зміни вибраного елементу у DurationCombo ====
-' При виборі значення:
-' — згортає список (зменшує висоту)
-' — перераховує поле PaidField на основі обраної тривалості (Duration) і аркуша price1
+' =====================================================
+' === Процедура DurationCombo_itemStateChanged ========
+' =====================================================
+' → Викликається при зміні вибору в ComboBox "DurationCombo".
+' → Згортає список та перераховує вартість у полі PaidField.
 Sub DurationCombo_itemStateChanged(oEvent)
     Dim oControl As Object
     Dim oDialog As Object
     oDialog = oEvent.Source.getContext()
     oControl = oEvent.Source.getModel()
-
-    ' Згортаємо ComboBox
-    oControl.Height = 15
-
-    ' ==== Отримання значення Duration ====
-    Dim nDuration As Long
-    nDuration = Val(oDialog.getControl("DurationCombo").getText())
-
-    ' ==== Відкриття аркуша цін ====
-    Dim oDoc As Object, oSheet As Object
-    oDoc = ThisComponent
-    oSheet = oDoc.Sheets.getByName("price1")
-
-    ' ==== Пошук ціни ====
-    Dim iRow As Long
-    Dim dPrice As Double
-    dPrice = 0
-
-    For iRow = 1 To 10
-        If oSheet.getCellByPosition(0, iRow).getValue() = nDuration Then
-            dPrice = oSheet.getCellByPosition(1, iRow).getValue()
-            Exit For
-        End If
-    Next iRow
-
-    ' ==== Запис у поле Paid ====
-    oDialog.getControl("PaidField").setText(CStr(dPrice))
+    oControl.Height = 15 ' Згортаємо ComboBox
+    Call CalculatePaidFieldWithPlace(oDialog)
 End Sub
 
-' ==== Звільнення ресурсів для DurationCombo ====
+' =====================================================
+' === Процедура DurationCombo_disposing ===============
+' =====================================================
+' → Викликається при видаленні слухача з ComboBox "DurationCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
 Sub DurationCombo_disposing(oEvent)
-    ' Порожньо. Обов’язково для відповідності інтерфейсу UNO.
+End Sub
+
+' =====================================================
+' === Процедура AddPlaceComboListeners ================
+' =====================================================
+' → Додає слухачі подій до ComboBox "PlaceCombo".
+' → Відкриває список при кліку та згортає після вибору.
+' → Виконує перевірку зайнятості місця.
+Sub AddPlaceComboListeners(oDialog As Object)
+    Dim oCombo As Object
+    oCombo = oDialog.getControl("PlaceCombo")
+
+    ' ==== Слухач миші для відкриття списку ====
+    Dim oMouseListener As Object
+    oMouseListener = CreateUnoListener("PlaceCombo_", "com.sun.star.awt.XMouseListener")
+    oCombo.addMouseListener(oMouseListener)
+
+    ' ==== Слухач вибору елементу ====
+    Dim oItemListener As Object
+    oItemListener = CreateUnoListener("PlaceCombo_", "com.sun.star.awt.XItemListener")
+    oCombo.addItemListener(oItemListener)
+End Sub
+
+' =====================================================
+' === Процедура PlaceCombo_mousePressed ===============
+' =====================================================
+' → Викликається при натисканні на ComboBox "PlaceCombo".
+' → Збільшує висоту для візуального відкриття списку.
+Sub PlaceCombo_mousePressed(oEvent)
+    Dim oControl As Object
+    oControl = oEvent.Source.getModel()
+    oControl.Height = PLACE_COMBO_HEIGHT ' Відкриваємо список
+End Sub
+
+' =====================================================
+' === Процедура PlaceCombo_mouseReleased ==============
+' =====================================================
+' → Викликається при відпусканні кнопки миші з ComboBox "PlaceCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
+Sub PlaceCombo_mouseReleased(oEvent)
+End Sub
+
+' =====================================================
+' === Процедура PlaceCombo_mouseEntered ===============
+' =====================================================
+' → Викликається при наведенні курсора на ComboBox "PlaceCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
+Sub PlaceCombo_mouseEntered(oEvent)
+End Sub
+
+' =====================================================
+' === Процедура PlaceCombo_mouseExited ================
+' =====================================================
+' → Викликається при виведенні курсора з ComboBox "PlaceCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
+Sub PlaceCombo_mouseExited(oEvent)
+End Sub
+
+' =====================================================
+' === Процедура PlaceCombo_itemStateChanged ===========
+' =====================================================
+' → Викликається при зміні вибору в ComboBox "PlaceCombo".
+' → Згортає список, оновлює вартість та перевіряє зайнятість місця.
+Sub PlaceCombo_itemStateChanged(oEvent)
+    Dim oControl As Object
+    Dim oDialog As Object
+    oControl = oEvent.Source.getModel()
+    oDialog = oEvent.Source.getContext()
+    oControl.Height = 15 ' Згортаємо список після вибору
+    Call CalculatePaidFieldWithPlace(oDialog)
+    Call CheckOccupiedPlace(oDialog)
+End Sub
+
+' =====================================================
+' === Процедура PlaceCombo_disposing ==================
+' =====================================================
+' → Викликається при видаленні слухача з ComboBox "PlaceCombo".
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
+Sub PlaceCombo_disposing(oEvent)
 End Sub

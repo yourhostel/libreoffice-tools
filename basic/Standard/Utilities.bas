@@ -5,7 +5,6 @@ REM  *****  BASIC  *****
 ' ==== Службові функції, утиліти, структура Map ======
 ' =====================================================
 
-
 ' =====================================================
 ' === Функція Capitalize =============================
 ' =====================================================
@@ -26,7 +25,7 @@ End Function
 ' → Блокує поля на формі (робить ReadOnly).
 ' → Параметр sFieldNames — перелік імен полів через крапку з комою.
 ' → Наприклад:
-'    LockFields(oEvent, "DurationField;OffsetField")
+'    LockFields(oEvent, "DurationCombo;OffsetField")
 Sub LockFields(oEvent As Object, sFieldNames As String)
 	Dim FieldNames() As String
 	FieldNames = Split(sFieldNames, ";")
@@ -150,3 +149,269 @@ Function AppendArray(arr As Variant, item As Variant) As Variant
         AppendArray = temp
     End If
 End Function
+
+' =====================================================
+' === Процедура CalculatePaidFieldWithPlace ==========
+' =====================================================
+' → Обчислює вартість проживання за кодом, місцем і кількістю днів.
+' → Дані беруться з листа price[N], де N — код.
+' → Встановлює обчислену суму у поле Paid.
+Sub CalculatePaidFieldWithPlace(oDialog As Object)
+
+    ' ==== Отримуємо значення з ComboBox ====
+    Dim sDuration As String
+    Dim sCode As String
+    Dim sPlace As String
+
+    sDuration = oDialog.getControl("DurationCombo").getText()
+    sCode = oDialog.getControl("CodeCombo").getText()
+    sPlace = oDialog.getControl("PlaceCombo").getText()
+
+    ' ==== Перетворення у числа ====
+    Dim nDuration As Long
+    Dim nCode As Long
+    Dim nPlace As Long
+
+    nDuration = Val(sDuration)
+    nCode = Val(sCode)
+    nPlace = Val(sPlace)
+
+    ' ==== Перевірка на чітність місця ====
+    Dim bEven As Boolean
+    bEven = (nPlace Mod 2 = 0) ' True — нижнє місце (парне), False — верхнє (непарне)
+
+    ' ==== Відкриваємо лист відповідно до коду ====
+    Dim oDoc As Object, oSheet As Object
+    oDoc = ThisComponent
+
+    On Error GoTo ErrorHandler
+    Set oSheet = oDoc.Sheets.getByName("price" & nCode)
+    On Error GoTo 0
+
+    ' ==== Пошук ціни ====
+    Dim dPrice As Double
+    dPrice = 0
+
+    If bEven Then
+        ' ==== Нижнє місце → таблиця A:B ====
+        For iRow = 1 To MAX_SEARCH_RANGE_IN_PRICE
+            If oSheet.getCellByPosition(0, iRow).getValue() = nDuration Then
+                dPrice = oSheet.getCellByPosition(1, iRow).getValue()
+                Exit For
+            End If
+        Next iRow
+    Else
+        ' ==== Верхнє місце → таблиця D:E ====
+        For iRow = 1 To MAX_SEARCH_RANGE_IN_PRICE
+            If oSheet.getCellByPosition(3, iRow).getValue() = nDuration Then
+                dPrice = oSheet.getCellByPosition(4, iRow).getValue()
+                Exit For
+            End If
+        Next iRow
+    End If
+
+    ' ==== Встановлюємо ціну у поле Paid ====
+    oDialog.getControl("PaidField").setText(CStr(dPrice))
+
+    Exit Sub
+
+ErrorHandler:
+	ShowDialog "Помилка", "Не знайдено лист 'price" & nCode & "'. Перевірте правильність коду."
+End Sub
+
+' =====================================================
+' === Процедура UpdatePlaceCombo ======================
+' =====================================================
+' → Оновлює список місць у ComboBox "PlaceCombo" згідно з кодом.
+' → Витягує значення з колонки G на листі price[N].
+' → Встановлює перше доступне місце за замовчуванням.
+Sub UpdatePlaceCombo(oDialog As Object)
+    Dim oDoc As Object, oSheet As Object
+    Dim oCombo As Object
+    Dim iRow As Long
+    Dim aPlaces() As String
+    Dim iCount As Integer
+    Dim nCode As Long
+
+    iCount = 0
+
+    nCode = Val(oDialog.getControl("CodeCombo").getText())
+    oDoc = ThisComponent
+
+    On Error GoTo ErrorHandler
+    Set oSheet = oDoc.Sheets.getByName("price" & nCode)
+
+    For iRow = 1 To MAX_SEARCH_RANGE_IN_PRICE
+        Dim nPlace As Long
+        nPlace = oSheet.getCellByPosition(6, iRow).getValue()
+
+        If nPlace <> 0 Then
+            ReDim Preserve aPlaces(iCount)
+            aPlaces(iCount) = CStr(nPlace)
+            iCount = iCount + 1
+        End If
+    Next iRow
+
+    Set oCombo = oDialog.getControl("PlaceCombo")
+    oCombo.Model.StringItemList = aPlaces
+
+    If iCount > 0 Then
+    	oCombo.Model.Text = aPlaces(0)
+	End If
+
+    If iCount > 12 Then
+    	PLACE_COMBO_HEIGHT = 110
+	Else
+    	PLACE_COMBO_HEIGHT = 15 + iCount * 9
+	End If
+
+    Exit Sub
+
+ErrorHandler:
+    ShowDialog "Помилка", "Не вдалося завантажити список місць з аркуша 'price" & nCode & "'"
+End Sub
+
+' =====================================================
+' === Функція IsPlaceOccupiedToday ====================
+' =====================================================
+' → Перевіряє, чи зайняте вказане місце на певний день.
+' → Враховує дату заселення, дату виселення і виключені коди.
+' → Повертає масив:
+'   (0) — True/False (зайняте чи ні)
+'   (1) — масив усіх знайдених місць на цей день
+Function IsPlaceOccupiedToday(nPlace As Long, nOffset As Long) As Variant
+    Dim oDoc As Object, oSheet As Object
+    Dim iRow As Long
+    Dim dToday As Double
+    Dim dTargetDay As Double
+    Dim foundPlaces() As Long
+    Dim foundCount As Long
+    foundCount = 0
+
+    dToday = Int(Now())
+    dTargetDay = dToday + nOffset
+
+    Set oDoc = ThisComponent
+    Set oSheet = oDoc.Sheets.getByName("data")
+
+    Dim excludedCodes() As Variant
+    excludedCodes = Split(EXCLUDED_CODES, ";")
+
+    Dim isOccupied As Boolean
+    isOccupied = False
+
+    iRow = 3
+    Do While oSheet.getCellByPosition(0, iRow).getValue() <> 0
+        Dim checkIn As Double
+        Dim checkOut As Double
+        Dim code As Long
+        Dim place As Long
+
+        checkIn = oSheet.getCellByPosition(0, iRow).getValue()
+        checkOut = oSheet.getCellByPosition(4, iRow).getValue()
+        code = oSheet.getCellByPosition(3, iRow).getValue()
+        place = oSheet.getCellByPosition(17, iRow).getValue()
+
+        Dim isDateOk As Boolean
+        isDateOk = (checkIn <= dTargetDay + 1) And (checkOut >= dTargetDay)
+
+        Dim isExcluded As Boolean
+        isExcluded = False
+
+        Dim i As Integer
+        For i = LBound(excludedCodes) To UBound(excludedCodes)
+            If code = CLng(excludedCodes(i)) Then
+                isExcluded = True
+                Exit For
+            End If
+        Next
+
+        If isDateOk And Not isExcluded Then
+            ' Заносимо місце у масив знайдених
+            ReDim Preserve foundPlaces(foundCount)
+            foundPlaces(foundCount) = place
+            foundCount = foundCount + 1
+
+            If place = nPlace Then
+                isOccupied = True
+            End If
+        End If
+
+        iRow = iRow + 1
+    Loop
+
+    IsPlaceOccupiedToday = Array(isOccupied, foundPlaces)
+End Function
+
+' =====================================================
+' === Процедура CheckOccupiedPlace ====================
+' =====================================================
+' → Використовує IsPlaceOccupiedToday для перевірки зайнятості місця.
+' → Якщо місце зайняте — показує повідомлення з переліком вільних місць.
+Sub CheckOccupiedPlace(oDialog As Object)
+    Dim nPlace As Long
+    Dim nOffset As Long
+    nPlace = Val(oDialog.getControl("PlaceCombo").getText())
+    nOffset = Val(oDialog.getControl("OffsetField").getText())
+
+    Dim result As Variant
+    result = IsPlaceOccupiedToday(nPlace, nOffset)
+
+    Dim isOccupied As Boolean
+    isOccupied = result(0)
+
+    Dim occupiedPlaces As Variant
+    occupiedPlaces = result(1)
+
+    Dim allPlaces As Variant
+    allPlaces = Split(ALL_PLACES, ";")
+
+    Dim freePlaces As String
+    freePlaces = ""
+
+    Dim i As Integer, j As Integer
+    Dim isBusy As Boolean
+
+    For i = LBound(allPlaces) To UBound(allPlaces)
+        isBusy = False
+        For j = LBound(occupiedPlaces) To UBound(occupiedPlaces)
+            If CLng(allPlaces(i)) = CLng(occupiedPlaces(j)) Then
+                isBusy = True
+                Exit For
+            End If
+        Next j
+        If Not isBusy Then
+            If Len(freePlaces) > 0 Then
+                freePlaces = freePlaces & ";"
+            End If
+            freePlaces = freePlaces & allPlaces(i)
+        End If
+    Next i
+
+    If isOccupied Then
+        ShowDialog "Місце № " & nPlace & " зайнято", "Вільні: ", freePlaces
+    End If
+End Sub
+
+' =====================================================
+' === Процедура SelectFirstEmptyInA ===================
+' =====================================================
+' → Знаходить першу порожню комірку в колонці A, починаючи з A4.
+' → Виділяє її та прокручує вікно так, щоб комірка була видима.
+' → Використовується для швидкої навігації до наступної доступної позиції.
+Sub SelectFirstEmptyInA()
+    Dim oDoc As Object, oSheet As Object
+    Dim oCell As Object
+    Dim iRow As Long
+
+    oDoc = ThisComponent
+    oSheet = oDoc.CurrentController.ActiveSheet
+
+    iRow = 3 ' начиная с A4
+    Do While oSheet.getCellByPosition(0, iRow).getString() <> ""
+        iRow = iRow + 1
+    Loop
+
+    oCell = oSheet.getCellByPosition(0, iRow)
+    oDoc.CurrentController.select(oCell)
+End Sub

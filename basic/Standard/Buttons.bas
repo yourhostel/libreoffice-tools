@@ -2,6 +2,12 @@ REM  *****  BASIC  *****
 
 ' Buttons.bas
 
+' =====================================================
+' === Процедура AddButton =============================
+' =====================================================
+' → Додає кнопку на діалогову форму.
+' → Налаштовує її позицію, розміри, підпис та тип кнопки.
+' → За замовчуванням кнопка Standard (не закриває діалог).
 Sub AddButton(oDialogModel As Object, _
 			   Name As String, _
 			   Label As String, _
@@ -12,6 +18,7 @@ Sub AddButton(oDialogModel As Object, _
                Optional PushType As Variant)
 
 	Dim iPushType As Integer
+
     If IsMissing(PushType) Then
         iPushType = 0 ' За замовчуванням — Standard (не закриває вікно)
     Else
@@ -27,6 +34,5 @@ Sub AddButton(oDialogModel As Object, _
     oButton.Width = Width
     oButton.Height = Height
     oButton.PushButtonType = iPushType
-
     oDialogModel.insertByName(Name, oButton)
 End Sub

@@ -4,31 +4,14 @@ REM  *****  BASIC  *****
 
 Dim FormResult As Boolean
 
-' ==== Запускає діалог введення нового запису ====
-' Відповідає за створення, відображення та обробку діалогової форми.
-'
-' Алгоритм роботи:
-' 1. Перевіряє правильність вибраної комірки за допомогою ValidateSelection().
-'    — Якщо перевірка не пройдена, функція завершується і повертає "Cancel".
-' 2. Створює діалог за допомогою функції CreateDialog().
-' 3. Підключає обробник події натискання кнопки "Вставити" (InsertButton) через CreateUnoListener().
-' 4. Підключає слухача для поля OffsetField — динамічне відображення/приховування поля Reason.
-' 5. Відображає діалог методом oDialog.execute().
-'    — Якщо користувач натискає кнопку "Вставити" і всі валідації успішні (FormResult = True),
-'      то виводиться повідомлення "Дані збережено".
-'    — Якщо користувач натискає "Закрити" або натискає "Вставити", але валідація не пройдена (FormResult = False),
-'      то виводиться повідомлення "Вихід без змін".
-' 6. Після завершення діалогу:
-'    — Знімає слухач з кнопки InsertButton.
-'    — Закриває (dispose) діалог.
-' 7. Повертає результат виконання:
-'    — "OK" — якщо діалог був підтверджений.
-'    — "Cancel" — якщо діалог був скасований або не пройшов перевірку.
-'
-' Повертає:
-' — String: "OK" або "Cancel"
+' =====================================================
+' === Функція ShowForm ================================
+' =====================================================
+' → Запускає діалог введення нового запису.
+' → Відображає форму, підключає слухачі, перевіряє введені дані та вставляє їх у таблицю.
+' → Повертає рядок: "OK" — якщо дані збережені, "Cancel" — якщо відмінено.
 Function ShowForm() As String
-
+    SelectFirstEmptyInA()
 
     FormResult = False
 
@@ -76,29 +59,12 @@ Function ShowForm() As String
     ShowForm = sResult
 End Function
 
-' ==== Обробник події натискання кнопки "Вставити" ====
-' Основна процедура, яка виконується при натисканні кнопки InsertButton у формі.
-'
-' Алгоритм дій:
-' 1. Отримує активний документ і поточну вибрану комірку (визначає рядок вставки).
-' 2. Запускає послідовно перевірки правильності введених даних:
-'    — OffsetReasonValidation — перевірка правильності зсуву і причини.
-'    — DateRangeValidation — перевірка правильності діапазону дат (кількість днів).
-'    — PersonDataValidation — перевірка заповнення персональних даних (ПІБ).
-'    — CodeValidation — перевірка правильності вибору коду.
-' 3. Якщо всі перевірки пройдені (allOk = True):
-'    — Виконується вставка даних у таблицю:
-'       • Offset і Reason → стовпці Q (16) та P (15)
-'       • Дати заїзду, виїзду, створення → стовпці A (0), E (4), O (14)
-'       • Персональні дані → стовпці B (1) та C (2)
-'       • Сума оплати → стовпець F (5)
-'    — Змінна FormResult встановлюється у True (флаг успішного виконання).
-'    — Діалог закривається командою oDialog.endExecute().
-'
-' Якщо хоча б одна перевірка не пройдена — дані не записуються, діалог залишається відкритим для виправлення помилок.
-'
-' Параметри:
-' — oEvent — об’єкт події, який містить контекст виклику (діалог, у якому натиснута кнопка).
+' =====================================================
+' === Процедура InsertButton_actionPerformed ==========
+' =====================================================
+' → Обробник події натискання кнопки "Вставити".
+' → Перевіряє всі поля форми та вставляє дані у таблицю.
+' → Якщо всі перевірки пройдені, закриває діалог.
 Sub InsertButton_actionPerformed(oEvent As Object)
     Dim oDoc As Object, oSel As Object
     oDoc = ThisComponent
@@ -106,7 +72,6 @@ Sub InsertButton_actionPerformed(oEvent As Object)
 
     Dim oDialog As Object
     oDialog = oEvent.Source.getContext()
-
 
         Dim allOk As Boolean
         allOk = True
@@ -131,6 +96,8 @@ Sub InsertButton_actionPerformed(oEvent As Object)
 			allOk = False
 		End If
 
+		Call CheckOccupiedPlace(oDialog)
+
     	If allOk Then
 
     	    OffsetReasonInsertion(oSel, oDialog)	' Q, P      причина зсуву	зсув
@@ -145,28 +112,19 @@ Sub InsertButton_actionPerformed(oEvent As Object)
     	End If
 End Sub
 
-' ==== Звільнення ресурсів кнопки InsertButton ====
-' Порожній метод, обов’язковий для відповідності інтерфейсу com.sun.star.awt.XActionListener.
-' Викликається автоматично при знищенні кнопки або діалогу.
-' У поточній реалізації не виконує жодних дій, але необхідний для коректної роботи UNO API.
+' =====================================================
+' === Процедура InsertButton_disposing ===============
+' =====================================================
+' → Викликається при видаленні слухача з кнопки InsertButton.
+' → Порожня. Забезпечує відповідність інтерфейсу UNO.
 Sub InsertButton_disposing(oEvent As Object)
 End Sub
 
-' ==== Перевіряє правильність вибраної комірки ====
-' Перевіряє, що поточна вибрана комірка задовольняє всім вимогам для вставки нового запису.
-' Умова для коректного вибору:
-' — Вибраний об'єкт є саме коміркою (не діапазон, не рядок, не стовпець).
-' — Комірка знаходиться у стовпці A (індекс 0).
-' — Комірка не розташована у перших трьох рядках (рядки з індексом 0, 1, 2 заборонені).
-' — Комірка є порожньою.
-' — Комірка у колонці E (індекс 4) на тому ж рядку теж має бути порожньою.
-'
-' У разі порушення будь-якої умови показує повідомлення про помилку і повертає False.
-' Якщо всі умови виконані — повертає True.
-'
-' Повертає:
-' — True — вибір коректний, можна продовжувати.
-' — False — вибір некоректний, дії припиняються.
+' =====================================================
+' === Функція ValidateSelection =======================
+' =====================================================
+' → Перевіряє правильність вибраної комірки для вставки нового запису.
+' → Повертає True — якщо вибір коректний, False — якщо ні.
 Function ValidateSelection() As Boolean
     Dim oDoc As Object, oSel As Object
     oDoc = ThisComponent
@@ -174,7 +132,7 @@ Function ValidateSelection() As Boolean
 
     ' ==== Перевірка чи це саме комірка ====
     If Not oSel.supportsService("com.sun.star.sheet.SheetCell") Then
-        ShowDialog("Помилка", "Виділи комірку у стовпці A.")
+        ShowDialog "Помилка", "Виділи комірку у стовпці A."
         ValidateSelection = False
         Exit Function
     End If
@@ -185,14 +143,14 @@ Function ValidateSelection() As Boolean
 
     ' ==== Заборона на перші три рядки ====
     If oCursorAddress.Row < 3 Then
-        ShowDialog("Помилка", "Заборонено використовувати перші три рядки.")
+        ShowDialog "Помилка", "Заборонено використовувати перші три рядки."
         ValidateSelection = False
         Exit Function
     End If
 
     ' ==== Перевірка: вибрана клітинка у стовпці A ====
     If oCursorAddress.Column <> 0 Then
-        ShowDialog("Помилка", "Виберіть клітинку у стовпці A.")
+        ShowDialog "Помилка", "Виберіть клітинку у стовпці A."
         ValidateSelection = False
         Exit Function
     End If
@@ -221,12 +179,11 @@ Function ValidateSelection() As Boolean
     ValidateSelection = True
 End Function
 
-' ==== Перевірка полів Offset і Reason ====
-' Перевіряє, що якщо значення Offset ≠ 0, то поле Reason не є порожнім.
-' Повертає:
-' - True — якщо умова виконана (або Offset = 0, або Reason заповнене).
-' - False — якщо Offset ≠ 0 і Reason порожнє.
-' У разі помилки показує діалогове попередження.
+' =====================================================
+' === Функція OffsetReasonValidation ==================
+' =====================================================
+' → Перевіряє, що якщо Offset ≠ 0, то заповнено поле Reason.
+' → Повертає True — якщо умова виконана, False — якщо ні.
 Function OffsetReasonValidation(oSel As Object, oDialog As Object) As Boolean
     ' ==== Читаємо значення полів ====
     Dim sOffset As String, sReason As String
@@ -235,7 +192,7 @@ Function OffsetReasonValidation(oSel As Object, oDialog As Object) As Boolean
 
     ' ==== Перевірка ====
     If Val(sOffset) <> 0 And Trim(sReason) = "" Then
-        ShowDialog("Увага!", "Поле 'Причина зсуву' не може бути порожнім при ненульовому зсуві!")
+        ShowDialog "Увага!", "Поле 'Причина зсуву' не може бути порожнім при ненульовому зсуві!"
         OffsetReasonValidation = False
         Exit Function
     End If
@@ -244,16 +201,14 @@ Function OffsetReasonValidation(oSel As Object, oDialog As Object) As Boolean
     OffsetReasonValidation = True
 End Function
 
-' ==== Вставка значень Offset і Reason у таблицю ====
-' Вставляє значення з полів форми:
-' - OffsetField → у колонку Q (індекс 16)
-' - ReasonField → у колонку P (індекс 15)
-' Працює по активному рядку, вибраному користувачем.
+' =====================================================
+' === Процедура OffsetReasonInsertion ================
+' =====================================================
+' → Вставляє значення Offset і Reason у таблицю (стовпці Q та P).
 Sub OffsetReasonInsertion(oSel As Object, oDialog As Object)
     Dim oSheet As Object
     oSheet = oSel.Spreadsheet
 
-    ' ==== Вставка Offset і Reason ====
     Dim sOffset As String, sReason As String
     sOffset = oDialog.getControl("OffsetField").getText()
     sReason = oDialog.getControl("ReasonField").getText()
@@ -263,17 +218,11 @@ Sub OffsetReasonInsertion(oSel As Object, oDialog As Object)
 
 End Sub
 
-' ==== Запис діапазону дат у таблицю ====
-' Обчислює дату заселення (з урахуванням зсуву Offset)
-' та дату виселення (дата заселення + Duration)
-' Записує:
-' - дату заселення в колонку A
-' - дату виселення в колонку E
-' - дату створення запису (з часом) в колонку O
-' Якщо Offset ≠ 0 — застосовує стиль комірки "створено" до дати створення
-' Дати форматуються відповідно до українського локалю:
-' - "DD.MM.YYYY" для дат
-' - "DD.MM.YYYY HH:MM" для дати й часу
+' =====================================================
+' === Процедура DateRangeInsertion ====================
+' =====================================================
+' → Вставляє дати заселення, виселення та створення у таблицю.
+' → Форматує дати у вигляді "DD.MM.YYYY" та "DD.MM.YYYY HH:MM".
 Sub DateRangeInsertion(oSel As Object, oDialog As Object)
     ' ==== Читаємо значення Offset і Duration ====
     Dim nOffset As Integer, nDuration As Integer
@@ -298,13 +247,13 @@ Sub DateRangeInsertion(oSel As Object, oDialog As Object)
     oLocale.Language = "uk"
     oLocale.Country = "UA"
 
-    ' Формат дати без часу
+    ' ==== Формат дати без часу ====
     nFormatDate = oFormats.queryKey("DD.MM.YYYY", oLocale, True)
     If nFormatDate = -1 Then
         nFormatDate = oFormats.addNew("DD.MM.YYYY", oLocale)
     End If
 
-    ' Формат дати з часом
+    ' ==== Формат дати з часом ====
     nFormatDateTime = oFormats.queryKey("DD.MM.YYYY HH:MM", oLocale, True)
     If nFormatDateTime = -1 Then
         nFormatDateTime = oFormats.addNew("DD.MM.YYYY HH:MM", oLocale)
@@ -347,12 +296,11 @@ Sub DateRangeInsertion(oSel As Object, oDialog As Object)
     End If
 End Sub
 
-' ==== Перевіряє заповнення персональних даних ====
-' Перевіряє, що всі три поля: Прізвище (LastNameField), Ім'я (FirstNameField)
-' та По батькові (PatronymicField) не є порожніми
-' Повертає True — якщо всі поля заповнені
-' Повертає False — якщо хоча б одне поле порожнє
-' У разі помилки виводить повідомлення через ShowDialog
+' =====================================================
+' === Функція PersonDataValidation ====================
+' =====================================================
+' → Перевіряє заповнення полів Прізвище, Ім'я та По батькові.
+' → Повертає True — якщо всі заповнені, False — якщо ні.
 Function PersonDataValidation(oDialog As Object) As Boolean
     Dim sLastName As String
     Dim sFirstName As String
@@ -365,7 +313,7 @@ Function PersonDataValidation(oDialog As Object) As Boolean
 
     ' ==== Перевірка на порожні значення ====
     If sLastName = "" Or sFirstName = "" Or sPatronymic = "" Then
-        ShowDialog("Увага!", "Необхідно заповнити всі поля: Прізвище, Ім'я, По батькові.")
+        ShowDialog "Увага!", "Необхідно заповнити всі поля: Прізвище, Ім'я, По батькові."
         PersonDataValidation = False
         Exit Function
     End If
@@ -373,12 +321,10 @@ Function PersonDataValidation(oDialog As Object) As Boolean
     PersonDataValidation = True
 End Function
 
-' ==== Вставляє персональні дані у таблицю ====
-' Отримує значення прізвища, ім'я та по батькові з діалогової форми
-' Форматує перші літери великими
-' Прізвище записується у колонку B (індекс 1)
-' Ім'я та по батькові об'єднуються у форматі "Ім'я По батькові" та записуються у колонку C (індекс 2)
-' Дані вставляються у рядок, відповідний до поточної вибраної клітинки (oSel)
+' =====================================================
+' === Процедура PersonDataInsertion ===================
+' =====================================================
+' → Вставляє прізвище та ім'я по батькові у таблицю (стовпці B та C).
 Sub PersonDataInsertion(oSel As Object, oDialog As Object)
     Dim sLastName As String
     Dim sFirstName As String
@@ -397,80 +343,35 @@ Sub PersonDataInsertion(oSel As Object, oDialog As Object)
     Dim oSheet As Object
     oSheet = oSel.Spreadsheet
 
-    ' Колонка B — прізвище
+    ' ==== Колонка B — прізвище ====
     oSheet.getCellByPosition(1, oSel.CellAddress.Row).setString(sLastName)
 
-    ' Колонка C — ім'я та по батькові
+    ' ==== Колонка C — ім'я та по батькові ====
     oSheet.getCellByPosition(2, oSel.CellAddress.Row).setString(sFullName)
 End Sub
 
-' ==== Розраховує суму оплати за кількістю днів ====
-' Зчитує значення полів CodeCombo та DurationField
-' Отримує відповідний лист з цінами за кодом (аркуш price1, price2 ... price11)
-' Шукає відповідну ціну за значенням Duration у діапазоні A2:B11
-' Записує знайдену суму у поле PaidField на формі
-' Якщо Code порожній — встановлює PaidField = 0
-Sub CalculatePaidFieldByDuration(oEvent)
-    ' ==== Отримання діалогу ====
-    Dim oDialog As Object
-    oDialog = oEvent.Source.getContext()
-
-    ' ==== Отримання Duration ====
-    Dim nDuration As Long
-    nDuration = Val(oDialog.getControl("DurationCombo").getText())
-
-    ' ==== Отримання значення Code ====
-    Dim sCode As String
-    sCode = oDialog.getControl("CodeCombo").getText()
-
-    ' ==== Перевірка чи обраний код ====
-    If Trim(sCode) = "" Then
-        oDialog.getControl("PaidField").setText("0")
-        Exit Sub
-    End If
-
-    ' ==== Отримання документа і листа з цінами ====
-    Dim oDoc As Object, oSheet As Object
-    oDoc = ThisComponent
-    oSheet = oDoc.Sheets.getByName("price" & sCode)
-
-    ' ==== Пошук ціни у діапазоні A2:B11 ====
-    Dim iRow As Long
-    Dim dPrice As Double
-    dPrice = 0
-
-    For iRow = 1 To 10 ' рядки з 2 по 11 (індексація з 0)
-        If oSheet.getCellByPosition(0, iRow).getValue() = nDuration Then
-            dPrice = oSheet.getCellByPosition(1, iRow).getValue()
-            Exit For
-        End If
-    Next iRow
-
-    ' ==== Запис у поле Paid ====
-    oDialog.getControl("PaidField").setText(CStr(dPrice))
-End Sub
-
-' ==== Вставляє значення з поля форми PaidField у таблицю ====
-' Отримує значення з поля PaidField
-' Вставляє це значення у колонку F (індекс 5) поточного рядка
-' oSel — поточна вибрана комірка (визначає рядок)
-' oDialog — екземпляр форми, з якої зчитується значення
+' =====================================================
+' === Процедура PaidInsertion =========================
+' =====================================================
+' → Вставляє значення з поля PaidField у таблицю (стовпець F).
 Sub PaidInsertion(oSel As Object, oDialog As Object)
-    ' Отримання листа
+    ' ==== Отримання листа ====
     Dim oSheet As Object
     oSheet = oSel.Spreadsheet
 
-    ' Отримання значення з поля форми
+    ' ==== Отримання значення з поля форми ====
     Dim dPrice As Double
     dPrice = Val(oDialog.getControl("PaidField").getText())
 
-    ' Вставка у колонку 'сплачено'  F (індекс 5)
+    ' ==== Вставка у колонку 'сплачено'  F (індекс 5) ====
     oSheet.getCellByPosition(5, oSel.CellAddress.Row).String = dPrice
 End Sub
 
-' ==== Перевіряє, що поля містять числа ====
-' Повертає True — якщо всі поля правильні
-' Повертає False — якщо хоча б одне поле некоректне
+' =====================================================
+' === Функція FinanceAreNumbersValidation =============
+' =====================================================
+' → Перевіряє, що зазначені фінансові поля містять числові значення.
+' → Повертає True — якщо все коректно, False — якщо є помилки.
 Function FinanceAreNumbersValidation(oDialog As Object, sFields As String) As Boolean
     Dim aFields() As String
     aFields = Split(sFields, ";")
@@ -488,7 +389,7 @@ Function FinanceAreNumbersValidation(oDialog As Object, sFields As String) As Bo
     		Dim Map As Variant
     		Map = GetFieldToColumnMap()
 
-    		ShowDialog("Увага!", "Поле """ & MapGet(Map, aFields(i)) & """ повинно містити число.")
+    		ShowDialog "Увага!", "Поле """ & MapGet(Map, aFields(i)) & """ повинно містити число."
     		bIsValid = False
 		End If
 
@@ -497,10 +398,11 @@ Function FinanceAreNumbersValidation(oDialog As Object, sFields As String) As Bo
     FinanceAreNumbersValidation = bIsValid
 End Function
 
-' ==== Перевірка: якщо заповнено Expense або Income, але порожній Comment ====
-' Повертає:
-' — True — якщо або всі порожні, або коментар є.
-' — False — якщо Expense або Income ≠ 0, але Comment пустий.
+' =====================================================
+' === Функція FinanceCommentValidation ================
+' =====================================================
+' → Перевіряє, що якщо Expense або Income ≠ 0, то заповнений Comment.
+' → Повертає True — якщо умова виконана, False — якщо ні.
 Function FinanceCommentValidation(oDialog As Object) As Boolean
 
     Dim dExpense As Double
@@ -522,37 +424,24 @@ Function FinanceCommentValidation(oDialog As Object) As Boolean
             fieldName = "IncomeField"
         End If
 
-        ShowDialog("Увага!", "Поле """ & MapGet(Map, fieldName) & """ заповнено, напишіть коментар.")
+        ShowDialog "Увага!", "Поле """ & MapGet(Map, fieldName) & """ заповнено, напишіть коментар."
         FinanceCommentValidation = False
         Exit Function
     End If
 
     FinanceCommentValidation = True
-
 End Function
 
-' ==== Вставляє фінансові дані та коментар у таблицю ====
-' Отримує значення з полів форми:
-' — ExpenseField → витрати
-' — IncomeField → надходження
-' — CommentField → коментар
-'
-' Вставляє ці значення у відповідні стовпці таблиці поточного рядка:
-' — колонка G (індекс 6) → "видаток"
-' — колонка H (індекс 7) → "прихід"
-' — колонка I (індекс 8) → "коментар"
-'
-' Параметри:
-' — oSel — поточна вибрана комірка (визначає рядок вставки)
-' — oDialog — екземпляр форми, з якої зчитуються значення
-'
-' Значення витрат і надходжень автоматично перетворюються у числа за допомогою Val().
+' =====================================================
+' === Процедура FinanceInsertion ======================
+' =====================================================
+' → Вставляє фінансові дані та коментар у таблицю (стовпці G, H, I).
 Sub FinanceInsertion(oSel As Object, oDialog As Object)
-    ' Отримання листа
+    ' ==== Отримання листа ====
     Dim oSheet As Object
     oSheet = oSel.Spreadsheet
 
-    ' Отримання значення з поля форми Expense, Income
+    ' ==== Отримання значення з поля форми Expense, Income ====
     Dim dExpense As Double
 	Dim dIncome As Double
     Dim dComment As String
@@ -560,25 +449,20 @@ Sub FinanceInsertion(oSel As Object, oDialog As Object)
 	dIncome = Val(oDialog.getControl("IncomeField").getText())
 	dComment = oDialog.getControl("CommentField").getText()
 
-    ' Вставка у колонку 'видаток'  G (індекс 6)
+    ' ==== Вставка у колонку 'видаток'  G (індекс 6) ====
     oSheet.getCellByPosition(6, oSel.CellAddress.Row).Value = dExpense
-    ' Вставка у колонку 'прихід'  H (індекс 7)
+    ' ==== Вставка у колонку 'прихід'  H (індекс 7) ====
     oSheet.getCellByPosition(7, oSel.CellAddress.Row).Value = dIncome
-    ' Вставка у колонку 'коментар'  I (індекс 8)
+    ' ==== Вставка у колонку 'коментар'  I (індекс 8) ====
     oSheet.getCellByPosition(8, oSel.CellAddress.Row).String = dComment
 End Sub
 
-' ==== Перевіряє коректність номера телефону ====
-' Функція базової валідації телефонного номера.
-' Перевіряє, що значення:
-' - складається лише з цифр (після видалення пробілів, тире, дужок);
-' - допускається наявність символу "+" на початку;
-' - довжина номера від 8 до 15 цифр (включно) після очистки;
-' Повертає:
-' - True — якщо номер виглядає як коректний;
-' - False — якщо номер є занадто коротким, занадто довгим, або містить недопустимі символи.
-' Ця валідація не перевіряє код країни та не гарантує, що це мобільний номер —
-' лише базова перевірка на формат без помилок типу "123", "asd", "0".
+' =====================================================
+' === Функція IsPhoneMinimalValid =====================
+' =====================================================
+' → Перевіряє мінімальну коректність номера телефону.
+' → Повертає True — якщо виглядає коректним, False — якщо ні.
+' → Базова перевірка на формат без помилок типу "123", "asd", "0".
 Function IsPhoneMinimalValid(sPhone As String) As Boolean
     ' ==== Очистка від пробілів, тире, дужок ====
     Dim sClean As String
@@ -611,32 +495,28 @@ Function IsPhoneMinimalValid(sPhone As String) As Boolean
     End If
 End Function
 
-' ==== Перевіряє правильність заповнення поля Телефон ====
-' Перевіряє, що значення поля PhoneField відповідає базовим вимогам до номеру телефону:
-' - складається з цифр (допускається символ "+" на початку);
-' - довжина номера після очистки від пробілів, тире та дужок — від 8 до 15 символів;
-' У разі помилки показує діалог із прикладами правильних форматів.
-' Повертає:
-' - True — якщо значення коректне;
-' - False — якщо значення некоректне.
+' =====================================================
+' === Функція PhoneValidation =========================
+' =====================================================
+' → Перевіряє правильність заповнення поля Телефон.
+' → Повертає True — якщо коректно, False — якщо ні.
 Function PhoneValidation(oDialog As Object) As Boolean
 	Dim sPhone As String
     sPhone = oDialog.getControl("PhoneField").getText()
 
 	If Not IsPhoneMinimalValid(sPhone) Then
-		ShowDialog("Поле 'Телефон' заповнене некоректно." _
-    	,"Приклад: +380671234567, 0671234567, +12025550198, 441234567890")
+		ShowDialog "Поле 'Телефон' заповнене некоректно." _
+    	,"Приклад: +380671234567, 0671234567, +12025550198, 441234567890"
 		PhoneValidation = False
 		Exit Function
     End If
     PhoneValidation = True
 End Function
 
-' ==== Вставляє значення з поля форми PhoneField у таблицю ====
-' Отримує значення з поля PhoneField
-' Вставляє це значення у колонку J (індекс 9) поточного рядка
-' oSel — поточна вибрана комірка (визначає рядок)
-' oDialog — екземпляр форми, з якої зчитується значення
+' =====================================================
+' === Процедура PhoneInsertion ========================
+' =====================================================
+' → Вставляє номер телефону у таблицю (стовпець J).
 Sub PhoneInsertion(oSel As Object, oDialog As Object)
     ' Отримання листа
     Dim oSheet As Object
@@ -650,19 +530,11 @@ Sub PhoneInsertion(oSel As Object, oDialog As Object)
     oSheet.getCellByPosition(9, oSel.CellAddress.Row).String = sPhone
 End Sub
 
-
-
-
-
-
-
-
-
-
-
-
-' ==== Створення діалогу ====
-
+' =====================================================
+' === Функція CreateDialog ============================
+' =====================================================
+' → Створює та налаштовує діалогову форму введення нового запису.
+' → Додає всі поля, мітки, кнопки, слухачі та повертає готовий діалог.
 Function CreateDialog() As Object
 
     Dim oDialog As Object
@@ -719,34 +591,41 @@ Function CreateDialog() As Object
     ' ==== Зсув у днях ====
     Call FieldTemplate(oDialogModel,      "Offset",        "Зсув у днях:", 10, 45, "0", 50, 50)
 
-    ' ==== Причини зсуву ====
-    Call FieldTemplate(oDialogModel,      "Reason",      "Причина зсуву:", 80, 45, "", 50, 60)
-
     ' ==== Кількість днів ====
-    'Call FieldTemplate(oDialogModel,    "Duration",     "Кількість днів:", 160, 45, "1", 50, 50)
-    Call ComboBoxTemplate(oDialogModel, "Duration", "Кількість днів:", 160, 45, "1", 50, 50, VALID_DURATIONS)
+    Call ComboBoxTemplate(oDialogModel, "Duration",     "Кількість днів:", 65, 45, "1", 50, 50, VALID_DURATIONS)
     Call AddDurationComboListeners(oDialog)
-     ' ==== Персональні дані ====
-    Call FieldTemplate(oDialogModel,    "LastName",           "Прізвище:", 10,  75, "", 70, 100)
-    Call FieldTemplate(oDialogModel,   "FirstName",               "Ім'я:", 125,  75, "", 70, 100)
-    Call FieldTemplate(oDialogModel,  "Patronymic",        "По батькові:", 240,  75, "_", 70, 100)
+
+    ' ==== Причини зсуву ====
+    Call FieldTemplate(oDialogModel,      "Reason",      "Причина зсуву:", 120, 45, "", 50, 165)
+
+    ' ==== Поля визначення ====
+    Call ComboBoxTemplate(oDialogModel,     "Code",                "Код:", 10, 75, "1", 50, 50, LIST_OF_CODES)
+    Call AddCodeComboListeners(oDialog)
+    Call ComboBoxTemplate(oDialogModel,     "Place",             "Місце:", 65, 75, "1", 50, 50, LIST_OF_PLACES)
+    Call AddPlaceComboListeners(oDialog)
 
     ' ==== Фінансові поля ====
-    Call ComboBoxTemplate(oDialogModel,     "Code",                "Код:", 10, 105, "1", 60, 60, LIST_OF_CODES)
-    Call AddComboListeners(oDialog)
-    Call FieldTemplate(oDialogModel, 	    "Paid",           "Сплачено:", 140, 105, PriceWithSheet, 70, 60)
-    Call FieldTemplate(oDialogModel, 	 "Expense",            "Видаток:", 210, 105, "0", 70, 60)
-    Call FieldTemplate(oDialogModel, 	  "Income",             "Прихід:", 280, 105, "0", 70, 60)
+    Call FieldTemplate(oDialogModel, 	    "Paid",           "Сплачено:", 120, 75, PriceWithSheet, 50, 50, True)
+    Call FieldTemplate(oDialogModel, 	 "Expense",            "Видаток:", 235, 75, "0", 50, 50)
+    Call FieldTemplate(oDialogModel, 	  "Income",             "Прихід:", 290, 75, "0", 50, 50)
 
     ' ==== Інші дані ====
-    Call FieldTemplate(oDialogModel,     "Comment",           "Коментар:", 10, 135, "", 70, 330)
+    Call FieldTemplate(oDialogModel,     "Comment",           "Коментар:", 10, 105, "", 70, 330)
+
+    ' ==== Персональні дані ====
+    Call FieldTemplate(oDialogModel,    "LastName",           "Прізвище:", 10,  135, "", 70, 100)
+    Call FieldTemplate(oDialogModel,   "FirstName",               "Ім'я:", 125,  135, "", 70, 100)
+    Call FieldTemplate(oDialogModel,  "Patronymic",        "По батькові:", 240,  135, "_", 70, 100)
 
     ' ==== Контактна інформація ====
     Call FieldTemplate(oDialogModel,       "Phone",            "Телефон:", 10, 165, "", 70, 100)
-    Call FieldTemplate(oDialogModel,   "BirthDate",    "Дата народження:", 120, 165, "", 100, 100)
+    Call FieldTemplate(oDialogModel,   "BirthDate",    "Дата народження:", 125, 165, "", 100, 100)
 
     ' ==== Документ ====
     Call FieldTemplate(oDialogModel,    "Passport",     "Паспортні дані:", 10, 195, "", 100, 330)
+
+    Call CalculatePaidFieldWithPlace(oDialog)
+    Call UpdatePlaceCombo(oDialog)
 
 ' ==============================================
 '   Функція: AddButton
@@ -762,9 +641,11 @@ Function CreateDialog() As Object
 ' ==============================================
 
     ' ==== Кнопка вставки ====
-    Call AddButton(oDialogModel, "InsertButton", "Вставити", 150, 220, 60, 14)
+    Call AddButton(oDialogModel, "InsertButton", "Вставити", 150, 225, 60, 14)
 
     oDialog.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
+
+    Call CalculatePaidFieldWithPlace(oDialog)
 
     ' ==== Повертаємо ====
     CreateDialog = oDialog

@@ -2,6 +2,18 @@ REM  *****  BASIC  *****
 
 ' Fields.bas
 
+' =====================================================
+' === Процедура FieldTemplate =========================
+' =====================================================
+' → Додає на діалог мітку та поле введення (Edit) під нею.
+' → Параметри:
+'   — NamePrefix: префікс для імені (Label та Field)
+'   — LabelText: текст мітки
+'   — PositionX, PositionY: координати верхнього лівого кута поля
+'   — vText: значення за замовчуванням
+'   — WidthLabel: ширина мітки
+'   — WidthField: ширина поля
+'   — ReadOnly: необов’язково. True — тільки для читання.
 Sub FieldTemplate(oDialogModel As Object, _
                   ByVal NamePrefix As String, _
                   ByVal LabelText As String, _
@@ -44,6 +56,18 @@ Sub FieldTemplate(oDialogModel As Object, _
 
 End Sub
 
+' =====================================================
+' === Процедура ComboBoxTemplate ======================
+' =====================================================
+' → Додає на діалог мітку та комбінований список (ComboBox) під нею.
+' → Параметри:
+'   — NamePrefix: префікс для імені (Label та Combo)
+'   — LabelText: текст мітки
+'   — PositionX, PositionY: координати верхнього лівого кута ComboBox
+'   — vText: значення за замовчуванням
+'   — WidthLabel: ширина мітки
+'   — WidthCombo: ширина ComboBox
+'   — ListOfPlaces: рядок зі значеннями через ;
 Sub ComboBoxTemplate(oDialogModel As Object, _
                       ByVal NamePrefix As String, _
                       ByVal LabelText As String, _
@@ -52,7 +76,7 @@ Sub ComboBoxTemplate(oDialogModel As Object, _
                       ByVal vText As String, _
                       ByVal WidthLabel As Integer, _
                       ByVal WidthCombo As Integer, _
-                      ByVal Items As String)
+                      ByVal ListOfPlaces As String)
 
     ' ==== Мітка ====
     Dim oLabel As Object
@@ -74,6 +98,6 @@ Sub ComboBoxTemplate(oDialogModel As Object, _
     oCombo.Width = WidthCombo
     oCombo.Height = 15
     oCombo.Text = vText
-    oCombo.StringItemList = Split(Items, ";")
+    oCombo.StringItemList = Split(ListOfPlaces, ";")
     oDialogModel.insertByName(oCombo.Name, oCombo)
 End Sub
