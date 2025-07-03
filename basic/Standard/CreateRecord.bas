@@ -33,8 +33,8 @@ Function ShowForm() As String
     oListenerInsert = CreateUnoListener("InsertButton_", "com.sun.star.awt.XActionListener")
     oButtonInsert.addActionListener(oListenerInsert)
 
-	' === Підключення слухача до OffsetField ===
-	Call AddTextFieldsOffsetListener(oDialog)
+    ' === Підключення слухача до OffsetField ===
+    Call AddTextFieldsOffsetListener(oDialog)
 
     ' === Змінна результату ===
     Dim sResult As String
@@ -48,9 +48,9 @@ Function ShowForm() As String
 
     If FormResult Then
     	MsgBox "" & Chr(10) & "Дані збережено", 64, "Готово"
-	Else
+    Else
     	MsgBox "" & Chr(10) & "Скасовано", 48, "Вихід без змін"
-	End If
+    End If
 
     ' === Очищення ===
     oButtonInsert.removeActionListener(oListenerInsert)
@@ -81,34 +81,34 @@ Sub InsertButton_actionPerformed(oEvent As Object)
         End If
 
         If Not PersonDataValidation(oDialog) Then
-    		allOk = False
+    	    allOk = False
 		End If
 
         If Not FinanceAreNumbersValidation(oDialog, "ExpenseField;IncomeField") Then
-    		allOk = False
-		End If
+    	    allOk = False
+	End If
 
-		If Not FinanceCommentValidation(oDialog) Then
-			allOk = False
-		End If
+	If Not FinanceCommentValidation(oDialog) Then
+	    allOk = False
+	End If
 
-		If Not PhoneValidation(oDialog) Then
-			allOk = False
-		End If
+	If Not PhoneValidation(oDialog) Then
+	    allOk = False
+	End If
 
-		Call CheckOccupiedPlace(oDialog)
+	Call CheckOccupiedPlace(oDialog)
 
     	If allOk Then
 
-    	    OffsetReasonInsertion(oSel, oDialog)	' Q, P      причина зсуву	зсув
-    		DateRangeInsertion(oSel, oDialog)		' A, E, O   заселення, виселення, створено
-    		PersonDataInsertion(oSel, oDialog)      ' B, C      прізвище, ім'я по батькові
-    		PaidInsertion(oSel, oDialog)            ' F         сплачено
-    		FinanceInsertion(oSel, oDialog)         ' G, H, I   видаток, прихід, коментар
-    		PhoneInsertion(oSel, oDialog)			' J         телефон
+    	    OffsetReasonInsertion(oSel, oDialog)    ' Q, P      причина зсуву	зсув
+    	    DateRangeInsertion(oSel, oDialog)	    ' A, E, O   заселення, виселення, створено
+    	    PersonDataInsertion(oSel, oDialog)      ' B, C      прізвище, ім'я по батькові
+    	    PaidInsertion(oSel, oDialog)            ' F         сплачено
+    	    FinanceInsertion(oSel, oDialog)         ' G, H, I   видаток, прихід, коментар
+    	    PhoneInsertion(oSel, oDialog)	    ' J         телефон
 
-        	FormResult = True   ' Ставимо True тільки якщо валідація пройшла та вставка відпрацювала коректно
-        	oDialog.endExecute()
+            FormResult = True   ' Ставимо True тільки якщо валідація пройшла та вставка відпрацювала коректно
+            oDialog.endExecute()
     	End If
 End Sub
 
