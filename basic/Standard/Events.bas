@@ -145,7 +145,6 @@ Sub CodeCombo_itemStateChanged(oEvent)
     oControl.Height = 15 ' Скриваємо список
     Call CalculatePaidFieldWithPlace(oDialog)
     Call UpdatePlaceCombo(oDialog)
-    Call CheckOccupiedPlace(oDialog)
 End Sub
 
 ' =====================================================
@@ -302,7 +301,6 @@ Sub PlaceCombo_itemStateChanged(oEvent)
     oDialog = oEvent.Source.getContext()
     oControl.Height = 15 ' Згортаємо список після вибору
     Call CalculatePaidFieldWithPlace(oDialog)
-    Call CheckOccupiedPlace(oDialog)
 End Sub
 
 ' =====================================================

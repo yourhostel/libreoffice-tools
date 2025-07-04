@@ -272,6 +272,29 @@ ErrorHandler:
 End Sub
 
 ' =====================================================
+' === Процедура SelectFirstEmptyInA ===================
+' =====================================================
+' → Знаходить першу порожню комірку в колонці A, починаючи з A4.
+' → Виділяє її та прокручує вікно так, щоб комірка була видима.
+' → Використовується для швидкої навігації до наступної доступної позиції.
+Sub SelectFirstEmptyInA()
+    Dim oDoc As Object, oSheet As Object
+    Dim oCell As Object
+    Dim iRow As Long
+
+    oDoc = ThisComponent
+    oSheet = oDoc.CurrentController.ActiveSheet
+
+    iRow = 3 ' начиная с A4
+    Do While oSheet.getCellByPosition(0, iRow).getString() <> ""
+        iRow = iRow + 1
+    Loop
+
+    oCell = oSheet.getCellByPosition(0, iRow)
+    oDoc.CurrentController.select(oCell)
+End Sub
+
+' =====================================================
 ' === Функція IsPlaceOccupiedToday ====================
 ' =====================================================
 ' → Перевіряє, чи зайняте вказане місце на певний день.
@@ -281,15 +304,18 @@ End Sub
 '   (1) — масив усіх знайдених місць на цей день
 Function IsPlaceOccupiedToday(nPlace As Long, nOffset As Long) As Variant
     Dim oDoc As Object, oSheet As Object
+
     Dim iRow As Long
+        iRow = 3
+
     Dim dToday As Double
+        dToday = Int(Now())
+
     Dim dTargetDay As Double
+        dTargetDay = dToday + nOffset
     Dim foundPlaces() As Long
     Dim foundCount As Long
     foundCount = 0
-
-    dToday = Int(Now())
-    dTargetDay = dToday + nOffset
 
     Set oDoc = ThisComponent
     Set oSheet = oDoc.Sheets.getByName("data")
@@ -300,7 +326,6 @@ Function IsPlaceOccupiedToday(nPlace As Long, nOffset As Long) As Variant
     Dim isOccupied As Boolean
     isOccupied = False
 
-    iRow = 3
     Do While oSheet.getCellByPosition(0, iRow).getValue() <> 0
         Dim checkIn As Double
         Dim checkOut As Double
@@ -312,11 +337,16 @@ Function IsPlaceOccupiedToday(nPlace As Long, nOffset As Long) As Variant
         code = oSheet.getCellByPosition(3, iRow).getValue()
         place = oSheet.getCellByPosition(17, iRow).getValue()
 
+        sFullName = oSheet.getCellByPosition(1, iRow).string
+        sName = oSheet.getCellByPosition(2, iRow).string
+
         Dim isDateOk As Boolean
-        isDateOk = (checkIn <= dTargetDay + 1) And (checkOut >= dTargetDay)
+        isDateOk = (checkIn <= dTargetDay) And (checkOut >= dTargetDay)
 
         Dim isExcluded As Boolean
         isExcluded = False
+
+        ' DebugGun(isDateOk, Array(iRow, checkIn, checkOut, code, place, dTargetDay, sFullName, sName))
 
         Dim i As Integer
         For i = LBound(excludedCodes) To UBound(excludedCodes)
@@ -343,12 +373,26 @@ Function IsPlaceOccupiedToday(nPlace As Long, nOffset As Long) As Variant
     IsPlaceOccupiedToday = Array(isOccupied, foundPlaces)
 End Function
 
+Sub DebugGun(isDateOk As Boolean, Item As Variant)
+    If isDateOk Then
+        MsgBox "⚠ isDateOk = True" & Chr(10) & _
+                    "Row: " & Item(0) & Chr(10) & _
+                "checkIn: " & Format(Item(1), "DD.MM.YYYY") & Chr(10) & _
+               "checkOut: " & Format(Item(2), "DD.MM.YYYY") & Chr(10) & _
+                   "code: " & Item(3) & Chr(10) & _
+                  "place: " & Item(4) & Chr(10) & _
+             "dTargetDay: " & Format(Item(5), "DD.MM.YYYY") & Chr(10) & _
+              "sFullName: " & Item(6) & Chr(10) & _
+                  "sName: " & Item(7)
+    End If
+End Sub
+
 ' =====================================================
 ' === Процедура CheckOccupiedPlace ====================
 ' =====================================================
 ' → Використовує IsPlaceOccupiedToday для перевірки зайнятості місця.
 ' → Якщо місце зайняте — показує повідомлення з переліком вільних місць.
-Sub CheckOccupiedPlace(oDialog As Object)
+Function CheckOccupiedPlace(oDialog As Object) As Boolean
     Dim nPlace As Long
     Dim nOffset As Long
     nPlace = Val(oDialog.getControl("PlaceCombo").getText())
@@ -390,28 +434,9 @@ Sub CheckOccupiedPlace(oDialog As Object)
 
     If isOccupied Then
         ShowDialog "Місце № " & nPlace & " зайнято", "Вільні: ", freePlaces
+        CheckOccupiedPlace = False
+        Exit Function
     End If
-End Sub
 
-' =====================================================
-' === Процедура SelectFirstEmptyInA ===================
-' =====================================================
-' → Знаходить першу порожню комірку в колонці A, починаючи з A4.
-' → Виділяє її та прокручує вікно так, щоб комірка була видима.
-' → Використовується для швидкої навігації до наступної доступної позиції.
-Sub SelectFirstEmptyInA()
-    Dim oDoc As Object, oSheet As Object
-    Dim oCell As Object
-    Dim iRow As Long
-
-    oDoc = ThisComponent
-    oSheet = oDoc.CurrentController.ActiveSheet
-
-    iRow = 3 ' начиная с A4
-    Do While oSheet.getCellByPosition(0, iRow).getString() <> ""
-        iRow = iRow + 1
-    Loop
-
-    oCell = oSheet.getCellByPosition(0, iRow)
-    oDoc.CurrentController.select(oCell)
-End Sub
+    CheckOccupiedPlace = True
+End Function

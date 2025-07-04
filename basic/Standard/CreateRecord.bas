@@ -33,8 +33,8 @@ Function ShowForm() As String
     oListenerInsert = CreateUnoListener("InsertButton_", "com.sun.star.awt.XActionListener")
     oButtonInsert.addActionListener(oListenerInsert)
 
-    ' === Підключення слухача до OffsetField ===
-    Call AddTextFieldsOffsetListener(oDialog)
+	' === Підключення слухача до OffsetField ===
+	Call AddTextFieldsOffsetListener(oDialog)
 
     ' === Змінна результату ===
     Dim sResult As String
@@ -48,9 +48,9 @@ Function ShowForm() As String
 
     If FormResult Then
     	MsgBox "" & Chr(10) & "Дані збережено", 64, "Готово"
-    Else
+	Else
     	MsgBox "" & Chr(10) & "Скасовано", 48, "Вихід без змін"
-    End If
+	End If
 
     ' === Очищення ===
     oButtonInsert.removeActionListener(oListenerInsert)
@@ -66,50 +66,34 @@ End Function
 ' → Перевіряє всі поля форми та вставляє дані у таблицю.
 ' → Якщо всі перевірки пройдені, закриває діалог.
 Sub InsertButton_actionPerformed(oEvent As Object)
-    Dim oDoc As Object, oSel As Object
+    Dim oDoc As Object, oSel As Object, oDialog As Object
     oDoc = ThisComponent
     oSel = oDoc.CurrentSelection
-
-    Dim oDialog As Object
     oDialog = oEvent.Source.getContext()
 
-        Dim allOk As Boolean
-        allOk = True
+        If OffsetReasonValidation(oSel, oDialog) _
+       And CheckOccupiedPlace(oDialog) _
+       And FinanceAreNumbersValidation(oDialog, "ExpenseField;IncomeField") _
+       And FinanceCommentValidation(oDialog) _
+       And PersonDataValidation(oDialog) _
+       And PhoneValidation(oDialog) _
+       And BirthDateValidation(oDialog) _
+       And PassportDataValidation(oDialog) Then
 
-        If Not OffsetReasonValidation(oSel, oDialog) Then
-            allOk = False
-        End If
+    	   OffsetReasonInsertion(oSel, oDialog)	   ' Q, P      причина зсуву	зсув
+    	   DateRangeInsertion(oSel, oDialog)	   ' A, E, O   заселення, виселення, створено
+    	   CodeInsertion(oSel, oDialog)            ' D         код
+    	   PersonDataInsertion(oSel, oDialog)      ' B, C      прізвище, ім'я по батькові
+    	   PaidInsertion(oSel, oDialog)            ' F         сплачено
+    	   FinanceInsertion(oSel, oDialog)         ' G, H, I   видаток, прихід, коментар
+    	   PhoneInsertion(oSel, oDialog)		   ' J         телефон
+    	   PassportBirthInsertion(oSel, oDialog)   ' K, L      паспортні дані, дата народження
+    	   HostelInsertion(oSel , oDialog)         ' N         хостел
+    	   PlaceInsertion(oSel, oDialog)           ' R         місце
 
-        If Not PersonDataValidation(oDialog) Then
-    	    allOk = False
-		End If
-
-        If Not FinanceAreNumbersValidation(oDialog, "ExpenseField;IncomeField") Then
-    	    allOk = False
-	End If
-
-	If Not FinanceCommentValidation(oDialog) Then
-	    allOk = False
-	End If
-
-	If Not PhoneValidation(oDialog) Then
-	    allOk = False
-	End If
-
-	Call CheckOccupiedPlace(oDialog)
-
-    	If allOk Then
-
-    	    OffsetReasonInsertion(oSel, oDialog)    ' Q, P      причина зсуву	зсув
-    	    DateRangeInsertion(oSel, oDialog)	    ' A, E, O   заселення, виселення, створено
-    	    PersonDataInsertion(oSel, oDialog)      ' B, C      прізвище, ім'я по батькові
-    	    PaidInsertion(oSel, oDialog)            ' F         сплачено
-    	    FinanceInsertion(oSel, oDialog)         ' G, H, I   видаток, прихід, коментар
-    	    PhoneInsertion(oSel, oDialog)	    ' J         телефон
-
-            FormResult = True   ' Ставимо True тільки якщо валідація пройшла та вставка відпрацювала коректно
-            oDialog.endExecute()
-    	End If
+           FormResult = True   ' Ставимо True тільки якщо валідація пройшла та вставка відпрацювала коректно
+           oDialog.endExecute()
+    End If
 End Sub
 
 ' =====================================================
@@ -131,29 +115,29 @@ Function ValidateSelection() As Boolean
     oSel = oDoc.CurrentSelection
 
     ' ==== Перевірка чи це саме комірка ====
-    If Not oSel.supportsService("com.sun.star.sheet.SheetCell") Then
-        ShowDialog "Помилка", "Виділи комірку у стовпці A."
-        ValidateSelection = False
-        Exit Function
-    End If
+    'If Not oSel.supportsService("com.sun.star.sheet.SheetCell") Then
+        'ShowDialog "Помилка", "Виділи комірку у стовпці A."
+        'ValidateSelection = False
+        'Exit Function
+    'End If
 
     ' ==== Отримуємо адресу ====
     Dim oCursorAddress As Object
     oCursorAddress = oSel.getCellAddress()
 
     ' ==== Заборона на перші три рядки ====
-    If oCursorAddress.Row < 3 Then
-        ShowDialog "Помилка", "Заборонено використовувати перші три рядки."
-        ValidateSelection = False
-        Exit Function
-    End If
+    'If oCursorAddress.Row < 3 Then
+        'ShowDialog "Помилка", "Заборонено використовувати перші три рядки."
+        'ValidateSelection = False
+        'Exit Function
+    'End If
 
     ' ==== Перевірка: вибрана клітинка у стовпці A ====
-    If oCursorAddress.Column <> 0 Then
-        ShowDialog "Помилка", "Виберіть клітинку у стовпці A."
-        ValidateSelection = False
-        Exit Function
-    End If
+    'If oCursorAddress.Column <> 0 Then
+        'ShowDialog "Помилка", "Виберіть клітинку у стовпці A."
+        'ValidateSelection = False
+        'Exit Function
+    'End If
 
     ' ==== Перевірка: клітинка має бути порожня ====
     'If oSel.getType() <> com.sun.star.table.CellContentType.EMPTY Then
@@ -531,6 +515,139 @@ Sub PhoneInsertion(oSel As Object, oDialog As Object)
 End Sub
 
 ' =====================================================
+' === Функція PassportDataValidation ==================
+' =====================================================
+' → Перевіряє коректність паспорта: кількість полів і мінімальні довжини.
+' → Використовує DateFormatValidation для дати.
+' → Якщо не валідно — викликає ShowPassportInvalid().
+Function PassportDataValidation(oDialog As Object) As Boolean
+    Dim parts() As String
+    parts = Split(oDialog.getControl("PassportField").getText(), ",")
+
+    If UBound(parts) <> 4 Then
+        ShowPassportInvalid()
+        PassportDataValidation = False
+        Exit Function
+    End If
+
+    If UBound(parts) <> 4 _
+       Or Len(Trim(parts(0))) < 7 _
+       Or Len(Trim(parts(1))) < 10 _
+       Or Len(Trim(parts(2))) < 7 _
+       Or Not DateFormatValidation(Trim(parts(3))) _
+       Or Len(Trim(parts(4))) < 15 Then
+
+        ShowPassportInvalid()
+        PassportDataValidation = False
+        Exit Function
+    End If
+
+    PassportDataValidation = True
+End Function
+
+' =====================================================
+' === Процедура ShowPassportInvalid ===================
+' =====================================================
+' → Виводить повідомлення про неправильні паспортні дані.
+Sub ShowPassportInvalid()
+    ShowDialog "Паспортні дані потребують уточнення.", _
+               "Коректна форма подання:", _
+               "Номер(≥7), Ким видан(≥10), Де(≥7), Коли(dd.mm.yyyy), Прописка(≥15)"
+End Sub
+
+' =====================================================
+' === Функція BirthDateValidation =====================
+' =====================================================
+' → Перевіряє правильність формату дати народження.
+' → Якщо не валідно — показує діалог із підказкою.
+Function BirthDateValidation(oDialog As Object) As Boolean
+    If Not DateFormatValidation(oDialog.getControl("BirthDateField").getText()) Then
+        ShowDialog "Формат дати народження не валідний", _
+                   "Подання має бути в такому вигляді: dd.mm.yyyy"
+        BirthDateValidation = False
+        Exit Function
+    End If
+    BirthDateValidation = True
+End Function
+
+' =====================================================
+' === Функція DateFormatValidation ====================
+' =====================================================
+' → Перевіряє, що рядок перетворюється в дату.
+' → Використовує CDate та обробку помилки.
+' → Повертає True — якщо дата валідна, False — якщо ні.
+Function DateFormatValidation(sDate As String) As Boolean
+    If Trim(sDate) = "" Then
+        DateFormatValidation = False
+        Exit Function
+    End If
+    On Error GoTo ErrHandler
+    Dim d As Date
+    d = CDate(sDate)
+    DateFormatValidation = True
+    Exit Function
+ErrHandler:
+    DateFormatValidation = False
+End Function
+
+' =====================================================
+' === Процедура PassportBirthInsertion ===============
+' =====================================================
+' → Вставляє паспортні дані та дату народження в таблицю (стовпці K, L).
+Sub PassportBirthInsertion(oSel As Object, oDialog As Object)
+    Dim oSheet As Object
+    oSheet = oSel.Spreadsheet
+
+    Dim sPassport As String
+    Dim sBirthDate As String
+
+    sPassport = oDialog.getControl("PassportField").getText()
+    sBirthDate = oDialog.getControl("BirthDateField").getText()
+
+    oSheet.getCellByPosition(10, oSel.CellAddress.Row).String = sPassport ' K
+    oSheet.getCellByPosition(11, oSel.CellAddress.Row).String = sBirthDate ' L
+End Sub
+
+' =====================================================
+' === Процедура HostelInsertion =======================
+' =====================================================
+' → Вставляє значення хостелу у таблицю (стовпець N).
+Sub HostelInsertion(oSel As Object, oDialog As Object)
+    Dim oSheet As Object
+    oSheet = oSel.Spreadsheet
+
+    oSheet.getCellByPosition(13, oSel.CellAddress.Row).String = HOSTEL ' N
+End Sub
+
+' =====================================================
+' === Процедура CodeInsertion =========================
+' =====================================================
+' → Вставляє код у таблицю (стовпець D).
+Sub CodeInsertion(oSel As Object, oDialog As Object)
+    Dim oSheet As Object
+    oSheet = oSel.Spreadsheet
+    Dim sCode As String
+
+    sCode = oDialog.getControl("CodeCombo").getText()
+
+    oSheet.getCellByPosition(3, oSel.CellAddress.Row).String = sCode ' D
+End Sub
+
+' =====================================================
+' === Процедура PlaceInsertion ========================
+' =====================================================
+' → Вставляє номер місця в таблицю (стовпець R) як число.
+Sub PlaceInsertion(oSel As Object, oDialog As Object)
+    Dim oSheet As Object
+    oSheet = oSel.Spreadsheet
+    Dim sPlace As String
+
+    sPlace = oDialog.getControl("PlaceCombo").getText()
+
+    oSheet.getCellByPosition(17, oSel.CellAddress.Row).Value = Val(sPlace) ' R
+End Sub
+
+' =====================================================
 ' === Функція CreateDialog ============================
 ' =====================================================
 ' → Створює та налаштовує діалогову форму введення нового запису.
@@ -650,3 +767,4 @@ Function CreateDialog() As Object
     ' ==== Повертаємо ====
     CreateDialog = oDialog
 End Function
+

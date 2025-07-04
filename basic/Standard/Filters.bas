@@ -19,24 +19,20 @@ Sub PeopleTodayFilter()
     Set oRange = GetPeopleRange()
 
     ' ==== Створення дескриптора фільтру ====
-
     Set oFilterDesc = oRange.createFilterDescriptor(True)
 
     ' ==== Оголошення фільтруючих полів (3 умови) ====
-
     Dim oFilterFields(2) As New com.sun.star.sheet.TableFilterField
 
-    ' ==== Перша умова: CheckIn <= сьогодні + 1 (включно) ====
-
+    ' ==== Перша умова: CheckIn <= сьогодні (включно) ====
     With oFilterFields(0)
         .Field = 0 ' Колонка A
         .Operator = com.sun.star.sheet.FilterOperator.LESS_EQUAL ' Менше або дорівнює. (сьогодні + 1)
         .IsNumeric = True
-        .NumericValue = dToday + 1 ' Щоб включити всіх хто заселився сьогодні
+        .NumericValue = dToday ' Щоб включити всіх хто заселився сьогодні
     End With
 
     ' ==== Друга умова: CheckOut >= сьогодні ====
-
     With oFilterFields(1)
         .Field = 4 ' Колонка E
         .Operator = com.sun.star.sheet.FilterOperator.GREATER_EQUAL ' Більше або дорівнює. Не пізніше ніж сьогодні
@@ -45,7 +41,6 @@ Sub PeopleTodayFilter()
     End With
 
     ' ==== Третя умова: D <> 7 (фільтруємо особливий статус) ====
-
 	With oFilterFields(2)
     	.Field = 3 ' Колонка D
     	.Operator = com.sun.star.sheet.FilterOperator.NOT_EQUAL ' Не дорівнює
@@ -54,17 +49,14 @@ Sub PeopleTodayFilter()
 	End With
 
     ' ==== Застосовуємо фільтр ====
-
     oFilterDesc.FilterFields = oFilterFields()
     oRange.filter(oFilterDesc)
 
     ' ==== Підрахунок видимих рядків і тих, у кого CheckOut сьогодні ====
-
     Dim result As Variant
     result = CountVisibleRows(oRange)
 
     ' ==== Виведення результатів ====
-
 	MsgBox "Порахуйте. Повинно бути " & result(0) & " " & PersonWord(result(0)) & "." & Chr(10) & _
        		Chr(10) & result(1) & " " & PersonWord(result(1)) & " до оплати, або на виселення." _
        		, 32, "Людей зараз:  " & result(0)
@@ -105,45 +97,37 @@ Function CountVisibleRows(oRange As Object) As Variant
     Dim dToday As Double
 
     ' ==== Отримання поточного листа ====
-
     oSheet = ThisComponent.CurrentController.ActiveSheet
 
     ' ==== Отримання поточної дати без часу ====
-
     dToday = Int(Now())
 
     ' ==== Ініціалізація лічильників ====
-
     iVisibleCount = 0
     iTermExpired = 0
 
     ' ==== Межі діапазону ====
-
     iStartRow = oRange.RangeAddress.StartRow
     iLastRow = oRange.RangeAddress.EndRow
 
     ' ==== Проходимо по кожному рядку діапазону ====
-
     For iRow = iStartRow To iLastRow
         ' ==== Отримання комірки дати виселення (колонка E) ====
 
         Set oCellOut = oSheet.getCellByPosition(4, iRow) ' Колонка E
 
 		' ==== Перевірка: рядок не відфільтрований і має дату виселення !== 0 ====
-
 		If Not oSheet.getRows().getByIndex(iRow).IsFiltered And oCellOut.getValue() <> 0 Then
     		iVisibleCount = iVisibleCount + 1
 		End If
 
         ' ==== Перевірка: чи дата виселення сьогодні ====
-
         If Int(oCellOut.getValue()) = dToday Then
     		iTermExpired = iTermExpired + 1
 		End If
     Next iRow
 
     ' ==== Повертаємо масив з двома значеннями: [видимих, на виселення] ====
-
     CountVisibleRows = Array(iVisibleCount, iTermExpired)
 End Function
 
@@ -156,15 +140,12 @@ Sub ResetPeopleTodayFilter()
     Dim oRange As Object, oFilterDesc As Object
 
     ' ==== Отримання діапазону ====
-
     Set oRange = GetPeopleRange()
 
     ' ==== Створення дескриптора фільтру ====
-
     Set oFilterDesc = oRange.createFilterDescriptor(True)
 
     ' ==== Скидання фільтру ====
-
     oFilterDesc.FilterFields = Array()
 
     oRange.filter(oFilterDesc)
@@ -182,12 +163,10 @@ Function GetPeopleRange() As Object
     Dim iLastRow As Long
 
     ' ==== Отримання документа і активного аркуша ====
-
     oDoc = ThisComponent
     oSheet = oDoc.CurrentController.ActiveSheet
 
     ' ==== Пошук останнього рядка за колонкою A ====
-
     iLastRow = 3 ' Починаємо з рядка 4 (індексація з 0)
 
     ' ==== Пошук до першої порожньої комірки у колонці A ====
@@ -196,10 +175,8 @@ Function GetPeopleRange() As Object
     Loop
 
     ' ==== Визначення діапазону A4:E(останній рядок) ====
-
     Set oRange = oSheet.getCellRangeByPosition(0, 3, 4, iLastRow - 1)
 
     ' ==== Повертаємо знайдений діапазон ====
-
     Set GetPeopleRange = oRange
 End Function
