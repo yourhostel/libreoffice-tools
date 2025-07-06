@@ -48,6 +48,13 @@ libreoffice-tools
 │       │   ├── CreateDialog
 │       │   └── ShowPassportInvalid
 │       │
+│       ├── EditRecord.bas
+│       │   ├── StartEdit
+│       │   ├── IsInAllowedColumns
+│       │   ├── IsInAllowedRows
+│       │   ├── FindEditRange
+│       │   └── MoveCursorToColumnA
+│       │
 │       ├── Events.bas
 │       │   ├── AddTextFieldsOffsetListener
 │       │   ├── OffsetField_textChanged
@@ -83,6 +90,7 @@ libreoffice-tools
 │       │   ├── PersonWord
 │       │   ├── CountVisibleRows
 │       │   ├── ResetPeopleTodayFilter
+│       │   ├── ResetFilter
 │       │   └── GetPeopleRange
 │       │
 │       ├── Images.bas
