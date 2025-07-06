@@ -4,6 +4,11 @@ REM  *****  BASIC  *****
 
 Dim FormResult As Boolean
 
+Sub StartCreate()
+    SelectFirstEmptyInA()
+    ShowForm()
+End Sub
+
 ' =====================================================
 ' === Функція ShowForm ================================
 ' =====================================================
@@ -11,8 +16,6 @@ Dim FormResult As Boolean
 ' → Відображає форму, підключає слухачі, перевіряє введені дані та вставляє їх у таблицю.
 ' → Повертає рядок: "OK" — якщо дані збережені, "Cancel" — якщо відмінено.
 Function ShowForm() As String
-    SelectFirstEmptyInA()
-
     FormResult = False
 
     ' === Перевірка чи є активна комірка ===
