@@ -3,14 +3,18 @@ REM  *****  BASIC  *****
 ' EditRecord.bas
 
 Sub StartEdit()
-    MsgBox "Start-1"
+    ResetPeopleTodayFilter(False)
     If Not IsInAllowedColumns() Then Exit Sub
-    MsgBox "Start"
     If Not IsInAllowedRows() Then Exit Sub
-
     MoveCursorToColumnA()
+    ShowForm()
 End Sub
 
+' =====================================================
+' === Функція IsInAllowedColumns ======================
+' =====================================================
+' → Перевіряє, чи курсор знаходиться в межах стовпців A–S.
+' → Повертає True, якщо так, інакше False та показує повідомлення.
 Function IsInAllowedColumns() As Boolean
     Dim oDoc, oSel, col
     oDoc = ThisComponent
@@ -25,10 +29,16 @@ Function IsInAllowedColumns() As Boolean
     End If
 End Function
 
+' =====================================================
+' === Функція IsInAllowedRows =========================
+' =====================================================
+' → Перевіряє, чи курсор знаходиться в дозволеному діапазоні рядків.
+' → Викликає FindEditRange для отримання меж діапазону.
+' → Повертає True, якщо так, інакше False та показує повідомлення.
 Function IsInAllowedRows() As Boolean
     Dim StartRow As Long, EndRow As Long
     Call FindEditRange(StartRow, EndRow)
-    MsgBox "StartRow: " & StartRow & " EndRow: " & EndRow
+    ' MsgBox "StartRow: " & StartRow & " EndRow: " & EndRow
     If StartRow = -1 Or EndRow = -1 Then
         ShowDialog "Помилка", "Не вдалося визначити діапазон редагування."
         IsInAllowedRows = False
@@ -38,58 +48,75 @@ Function IsInAllowedRows() As Boolean
     Dim oDoc, oSel, row
     oDoc = ThisComponent
     oSel = oDoc.CurrentSelection
-    row = oSel.RangeAddress.StartRow
+    row = oSel.RangeAddress.StartRow + 1
 
     ' якщо курсор поза межами дозволеного діапазону
     If row < StartRow Or row > EndRow Then
-        ShowDialog "Помилка", "Курсор поза дозволеним діапазоном рядків: " & (StartRow+1) & "–" & (EndRow+1) & "."
+        ShowDialog "Помилка", "Курсор поза дозволеним діапазоном рядків: " & (StartRow) & "–" & (EndRow) & "."
         IsInAllowedRows = False
     Else
         IsInAllowedRows = True
     End If
 End Function
 
+' =====================================================
+' === Процедура FindEditRange =========================
+' =====================================================
+' → Визначає діапазон дозволених рядків для редагування.
+' → StartRow — перший після останньої «інкасації» +2 (або 4‑й, якщо не знайдено).
+' → EndRow — перший порожній у стовпці E після StartRow, з компенсацією +1.
 Sub FindEditRange(ByRef StartRow As Long, ByRef EndRow As Long)
-    Dim oDoc, oSheet, oRange, aData, i, rowCount
+    Dim oDoc, oSheet, oRange, oDesc, oFoundAll
+    Dim i As Long
+
     oDoc = ThisComponent
     oSheet = oDoc.Sheets(0)
-    rowCount = oSheet.Rows.Count
-
-    ' читаємо діапазон стовпця E починаючи з 4 рядка
-    oRange = oSheet.getCellRangeByPosition(4, 3, 4, rowCount - 1)
-    aData = oRange.getDataArray()
 
     StartRow = -1
     EndRow = -1
 
-    ' йдемо вниз — шукаємо перший порожній
-    For i = 0 To UBound(aData)
-        If Trim(aData(i)(0)) = "" Then
-            EndRow = i + 3 - 1 ' -1 бо порожня — вже за діапазоном
+    ' діапазон стовпця E від рядка 4 до кінця
+    oRange = oSheet.getCellRangeByPosition(4, 3, 4, oSheet.Rows.Count - 1)
+
+    ' шукаємо останню "інкасація" у діапазоні
+    oDesc = oRange.createSearchDescriptor()
+    oDesc.SearchString = "інкасація"
+    oDesc.SearchRegularExpression = False
+    oDesc.SearchCaseSensitive = False
+
+    oFoundAll = oRange.findAll(oDesc)
+
+    If Not IsNull(oFoundAll) And oFoundAll.Count > 0 Then
+        ' якщо знайдено
+        ' — беремо останню + 2 компенсуємо ініціалізацію та рядок інкасації
+        StartRow = oFoundAll.getByIndex(oFoundAll.Count - 1).RangeAddress.StartRow + 2
+    Else
+        ' якщо не знайдено — нова таблиця, стартуємо з 4‑го рядка
+        StartRow = 3
+    End If
+
+    ' MsgBox "Початок діапазону (StartRow): " & StartRow
+
+    ' шукаємо перший порожній рядок у стовпці E від StartRow вниз
+    For i = StartRow To oSheet.Rows.Count - 1
+        If Trim(oSheet.getCellByPosition(4, i).String) = "" Then
+            EndRow = i - 1
             Exit For
         End If
     Next i
 
-    ' якщо не знайшли порожню — беремо самий низ
-    If EndRow = -1 Then
-        EndRow = rowCount - 1
-    End If
+    ' якщо не знайшли порожній — беремо останній рядок аркуша
+    If EndRow = -1 Then EndRow = oSheet.Rows.Count - 1
 
-    ' тепер йдемо вгору від EndRow — шукаємо "інкасація"
-    For i = EndRow - 3 To 0 Step -1
-        If LCase(Trim(aData(i)(0))) = "інкасація" Then
-            StartRow = i + 3 + 1 ' +1 бо "інкасація" сама не входить
-            Exit For
-        End If
-    Next i
+    EndRow = EndRow + 1
 
-    ' якщо не знайшли "інкасація" — помилка
-    If StartRow = -1 Then
-        MsgBox "Не знайдено 'інкасація' у стовпці E.", 48, "Помилка"
-    End If
-
+    ' MsgBox "Кінець діапазону (EndRow): " & EndRow
 End Sub
 
+' =====================================================
+' === Процедура MoveCursorToColumnA ===================
+' =====================================================
+' → Переносить курсор у стовпець A поточного рядка.
 Sub MoveCursorToColumnA()
     Dim oDoc, oCtrl, oSel, row
     oDoc = ThisComponent

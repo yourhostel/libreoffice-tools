@@ -136,7 +136,7 @@ End Function
 ' =====================================================
 ' → Скидає всі фільтри на діапазоні людей.
 ' → Видаляє умови фільтрації та ставить курсор на першу пусту клітинку в колонці A.
-Sub ResetPeopleTodayFilter()
+Sub ResetPeopleTodayFilter(SetCursor As Boolean)
     Dim oRange As Object, oFilterDesc As Object
 
     ' ==== Отримання діапазону ====
@@ -149,7 +149,20 @@ Sub ResetPeopleTodayFilter()
     oFilterDesc.FilterFields = Array()
 
     oRange.filter(oFilterDesc)
-    SelectFirstEmptyInA()
+
+    if SetCursor Then
+        SelectFirstEmptyInA()
+    End If
+End Sub
+
+' =====================================================
+' === Процедура ResetFilter ===========================
+' =====================================================
+' → Скидає всі фільтри на діапазоні людей.
+' → Видаляє умови фільтрації та ставить курсор на першу пусту клітинку в колонці A.
+' → Використовується для прив'язування до кнопки з параметром позиціонування курсору.
+Sub ResetFilter()
+    ResetPeopleTodayFilter(True)
 End Sub
 
 ' =====================================================
