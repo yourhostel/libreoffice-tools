@@ -440,3 +440,54 @@ Function CheckOccupiedPlace(oDialog As Object) As Boolean
 
     CheckOccupiedPlace = True
 End Function
+
+' =====================================================
+' === Функція ShowPasswordDialog ======================
+' =====================================================
+' → Виводить діалог для введення пароля.
+' → Порівнює введений пароль з очікуваним та повертає True, якщо вони збігаються.
+Function ShowPasswordDialog(sExpectedPassword As String) As Boolean
+
+    Dim oDialog      As Object
+    Dim oDialogModel As Object
+    Dim oField       As Object
+    Dim oButton      As Object
+    Dim sInput       As String
+    Dim bResult      As Boolean
+
+    ' створюємо діалог і модель
+    oDialog = CreateUnoService("com.sun.star.awt.UnoControlDialog")
+    oDialogModel = CreateUnoService("com.sun.star.awt.UnoControlDialogModel")
+    oDialog.setModel(oDialogModel)
+
+    With oDialogModel
+        .PositionX = 100
+        .PositionY = 100
+        .Width = 160
+        .Height = 60
+        .Title = "Введіть пароль"
+    End With
+
+    ' поле пароля
+    FieldTemplate oDialogModel, "Password", "Пароль:", 30, 15, "", 40, 100
+
+    ' кнопка OK
+    AddButton oDialogModel, "OkButton", "OK", 55, 40, 50, 14, 1 ' 1 = OK кнопка
+
+    ' створюємо peer
+    oDialog.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
+
+    oDialog.getControl("PasswordField").Model.EchoChar = Asc("*")
+
+    ' виконуємо діалог
+    If oDialog.execute() = 1 Then
+        oField = oDialog.getControl("PasswordField")
+        sInput = oField.getModel().Text
+        bResult = (sInput = sExpectedPassword)
+    End If
+
+    oDialog.dispose()
+
+    ShowPasswordDialog = bResult
+End Function
+
