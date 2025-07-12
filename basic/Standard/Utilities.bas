@@ -486,13 +486,15 @@ Function CheckOccupiedPlace(oDialog As Object, sAction As String) As Boolean
         Exit Function
     End If
 
-    ShowFields oFoundRows
+    ShowFields oFoundRows, "Можливі перетени діапазонів на цьому місці"
 
-    dCurrentDate = CDate(oDialog.getControl("CurrentDateField").getText())
-    nOffset = Val(oDialog.getControl("OffsetField").getText())
-    dTargetDate = dCurrentDate + nOffset
+    ' dCurrentDate = CDate(oDialog.getControl("CurrentDateField").getText())
+    ' nOffset = Val(oDialog.getControl("OffsetField").getText())
+    ' dTargetDate = dCurrentDate + nOffset
+    ' ShowFields GetOccupiedRows(dtargetDate), "Тестування реньджу"
 
-    ' ShowFields GetFreePlaces(dTargetDate)
+    MsgDlg "Вільні місця: ", GetVacantPlacesString(GetOccupiedRows(dTargetDate), ", "), False, 65
+
     CheckOccupiedPlace = False
 End Function
 
@@ -533,7 +535,7 @@ End Function
 ' =====================================================
 ' → Виводить дані по кожному рядку діапазону oFoundRange.
 ' → Виводить A, B, С, E, O, R (заселення, прізвище, ім'я по батькові, виселення, створено, місце)
-Sub ShowFields(oFoundRange As Object)
+Sub ShowFields(oFoundRange As Object, sTitle As String)
     Dim nRangeCount As Long
     Dim i As Long
     Dim sOutput As String
@@ -566,7 +568,7 @@ Sub ShowFields(oFoundRange As Object)
                "Місце: " & place & Chr(10) & String(30, "-") & Chr(10)
     Next i
 
-    MsgBox sOutput, 48, "Можливі перетени діапазонів на цьому місці"
+    MsgDlg sTitle, sOutput, True
 End Sub
 
 ' =====================================================
@@ -666,3 +668,139 @@ Function GetAfterLastEncashRange() As Variant
         GetAfterLastEncashRange = Array(lStartRow, lEndRow)
     End If
 End Function
+
+' =====================================================
+' === Функція GetOccupiedRows =========================
+' =====================================================
+' → Повертає SheetCellRanges із зайнятими місцями на вказану дату.
+' → Перевіряє діапазон [CheckIn, CheckOut] і виключає ENCASH.
+' → Результат: XSheetCellRanges.
+Function GetOccupiedRows(targetDate As Date) As Object
+    Dim oSheet As Object
+    Dim oRanges As Object
+    Dim oRange As Object
+    Dim nRows As Long
+    Dim i As Long
+    Dim sCheckOut As String
+    Dim dCheckIn As Date, dCheckOut As Date
+
+    oRange = GetRecordsRange()
+    oSheet = oRange.Spreadsheet
+    nRows = oRange.Rows.Count
+
+    oRanges = ThisComponent.createInstance("com.sun.star.sheet.SheetCellRanges")
+
+    For i = 0 To nRows - 1
+        On Error Resume Next
+        dCheckIn  = CDate(oSheet.getCellByPosition(0, i + 3).String)
+        sCheckOut = oSheet.getCellByPosition(4, i + 3).String
+        On Error GoTo 0
+
+        If sCheckOut <> ENCASH Then
+            dCheckOut = CDate(sCheckOut)
+            If dCheckIn <= targetDate And targetDate <= dCheckOut Then
+                oRanges.addRangeAddress _
+                    oSheet.getCellRangeByPosition(0, i + 3, 20, i + 3).RangeAddress, False
+            End If
+        End If
+    Next i
+
+    GetOccupiedRows = oRanges
+End Function
+
+' =====================================================
+' === Функція GetVacantPlacesString ===================
+' =====================================================
+' → Повертає рядок вільних місць через роздільник (за замовчуванням ";").
+' → Порівнює ALL_PLACES та зайняті місця.
+' → Результат: рядок вільних місць.
+Function GetVacantPlacesString(oOccupiedRows As Object, Optional sSeparator As String) As String
+    If IsMissing(sSeparator) Then sSeparator = ";"
+
+    Dim aAllPlaces() As String
+    Dim aOccupiedPlaces() As String
+    Dim aVacantPlaces() As String
+    Dim i As Long
+
+    ' Всі місця
+    aAllPlaces = Split(ALL_PLACES, ";")
+
+    ' Зайняті місця
+    If oOccupiedRows.getCount() > 0 Then
+        ReDim aOccupiedPlaces(oOccupiedRows.getCount() - 1)
+        For i = 0 To oOccupiedRows.getCount() - 1
+            aOccupiedPlaces(i) = Trim(oOccupiedRows.getByIndex(i).getCellByPosition(17, 0).String)
+        Next i
+    Else
+        aOccupiedPlaces = Array()
+    End If
+
+    ' Вільні = A - B
+    aVacantPlaces = DiffArrays(aAllPlaces, aOccupiedPlaces)
+
+    If UBound(aVacantPlaces) >= 0 Then
+        GetVacantPlacesString = Join(aVacantPlaces, sSeparator & " ")
+    Else
+        GetVacantPlacesString = ""
+    End If
+End Function
+
+' =====================================================
+' === Функція DiffArrays ==============================
+' =====================================================
+' → Повертає масив A–B (елементи A, яких немає в B).
+' → Використовується для визначення вільних місць.
+' → Результат: масив строк.
+Function DiffArrays(A As Variant, B As Variant) As Variant
+    Dim C() As String
+    Dim i As Long, j As Long, n As Long
+    Dim isInB As Boolean
+
+    ReDim C(UBound(A))
+    n = 0
+
+    For i = 0 To UBound(A)
+        isInB = False
+        For j = 0 To UBound(B)
+            If Trim(A(i)) = Trim(B(j)) Then
+                isInB = True
+                Exit For
+            End If
+        Next j
+        If Not isInB Then
+            C(n) = A(i)
+            n = n + 1
+        End If
+    Next i
+
+    If n > 0 Then
+        ReDim Preserve C(n - 1)
+    Else
+        C = Array()
+    End If
+
+    DiffArrays = C
+End Function
+
+' =====================================================
+' === Процедура ShowArray =============================
+' =====================================================
+' → Виводить елементи масиву через кому в MsgBox.
+' → Якщо масив порожній — повідомляє про це.
+Sub ShowArray(arr As Variant)
+    Dim s As String
+    Dim i As Long
+
+    If IsEmpty(arr) Then
+        MsgBox "Масив порожній", 64, "Результат"
+        Exit Sub
+    End If
+
+    s = ""
+    For i = LBound(arr) To UBound(arr)
+        s = s & arr(i)
+        If i < UBound(arr) Then s = s & ", "
+    Next i
+
+    MsgBox s, 64, "Результат"
+End Sub
