@@ -10,6 +10,7 @@ REM  *****  BASIC  *****
 Sub DeleteRow()
     Dim oDoc As Object, oSheet As Object, oSel As Object
     Dim row As Long
+    Dim bWasProtected As Boolean
 
     oDoc = ThisComponent
     oSel = oDoc.CurrentSelection
@@ -22,8 +23,21 @@ Sub DeleteRow()
         Exit Sub
     End If
 
+    ' === Перевіряємо, чи захищений аркуш ===
+    bWasProtected = oSheet.IsProtected
+
+    ' ==== Якщо захищений — знімаємо захист ====
+    If bWasProtected Then
+        oSheet.unprotect(NEGET_RULES)
+    End If
+
     ' === Видаляємо рядок ===
     oSheet.Rows.removeByIndex(row, 1)
+
+    ' ==== Повертаємо захист назад ====
+    If bWasProtected Then
+        oSheet.protect(NEGET_RULES)
+    End If
 
     ' === Переносимо курсор у стовпець ===
     ' MoveCursorToColumnA()
