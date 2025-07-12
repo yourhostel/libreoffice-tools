@@ -2,8 +2,6 @@ REM  *****  BASIC  *****
 
 ' Encashment.bas
 
-REM  *****  BASIC  *****
-
 ' =====================================================
 ' === Процедура DoEncashment ==========================
 ' =====================================================
@@ -17,8 +15,6 @@ Sub DoEncashment()
 
     Dim oDocument        As Object
     Dim oSheet           As Object
-    Dim oSelectedCell    As Object
-    Dim lRowNumber       As Long
     Dim aRange            As Variant
     Dim lStartRow         As Long
     Dim lEndRow           As Long
@@ -34,19 +30,14 @@ Sub DoEncashment()
         Exit Sub
     End If
 
-    ' === позиціонування на перший порожній рядок ===
-    SelectFirstEmptyInA()
-    oSelectedCell = oDocument.CurrentSelection
-    lRowNumber = oSelectedCell.RangeAddress.StartRow
-
     ' === знаходимо діапазон для інкасації ===
-    aRange = FindEncashmentRange(lRowNumber)
+    aRange = GetAfterLastEncashRange()
     lStartRow = aRange(0)
     lEndRow = aRange(1)
 
     ' === перевіряємо чи є що інкасувати ===
     If lStartRow = 0 And lEndRow = 0 Then
-        ShowDialog "Інкасація не потрібна", "Після останньої інкасації немає повних записів."
+        ShowDialog "Інкасація не потрібна", "Після останньої інкасації немає нових записів."
         Exit Sub
     End If
 
@@ -54,7 +45,7 @@ Sub DoEncashment()
     nTotalEncash = CalculateEncashment(lStartRow, lEndRow)
 
     ' === вставка інкасації ===
-    InsertEncashment lRowNumber, nTotalEncash
+    InsertEncashment nTotalEncash
 
 End Sub
 
@@ -88,44 +79,11 @@ Function CalculateEncashment(lStartRow As Long, lEndRow As Long) As Double
 End Function
 
 ' =====================================================
-' === Функція FindEncashmentRange ====================
-' =====================================================
-' → Визначає діапазон рядків для інкасації.
-' → Шукає останній запис інкасації й повертає масив [start, end].
-' → Якщо немає що інкасувати — повертає [0, 0].
-Function FindEncashmentRange(lRowNumber As Long) As Variant
-    Dim oSheet      As Object
-    Dim lStartRow   As Long
-    Dim lEndRow     As Long
-    Dim lCheckRow   As Long
-
-    oSheet = ThisComponent.Sheets(0)
-
-    ' шукаємо останню інкасацію від курсора вгору
-    For lCheckRow = lRowNumber - 1 To 3 Step -1
-        If Trim(oSheet.getCellByPosition(4, lCheckRow).String) = ENCASH Then
-            lStartRow = lCheckRow + 1
-            Exit For
-        End If
-    Next
-
-    If lStartRow = 0 Then lStartRow = 3
-
-    lEndRow = lRowNumber - 1
-
-    If lEndRow < lStartRow Then
-        FindEncashmentRange = Array(0, 0) ' немає діапазону
-    Else
-        FindEncashmentRange = Array(lStartRow, lEndRow)
-    End If
-End Function
-
-' =====================================================
 ' === Процедура InsertEncashment =====================
 ' =====================================================
 ' → Вставляє запис про інкасацію в обраний рядок.
 ' → Записує дату, тип, суму й показує повідомлення про успіх.
-Sub InsertEncashment(lRowNumber As Long, nTotalEncash As Double)
+Sub InsertEncashment(nTotalEncash As Double)
     Dim oDocument        As Object
     Dim oSheet           As Object
     Dim oFormats         As Object
@@ -134,11 +92,19 @@ Sub InsertEncashment(lRowNumber As Long, nTotalEncash As Double)
     Dim lFormatDateTime  As Long
     Dim oCell            As Object
     Dim dToday           As Date
+    Dim oSelectedCell    As Object
+    Dim lRowNumber       As Long
 
     oDocument = ThisComponent
     oSheet = oDocument.Sheets(0)
 
     dToday = Now()
+
+    ' === позиціонування на перший порожній рядок ===
+    SelectFirstEmptyInA()
+
+    oSelectedCell = oDocument.CurrentSelection
+    lRowNumber = oSelectedCell.RangeAddress.StartRow
 
     ' формати
     oFormats = oDocument.getNumberFormats()
@@ -166,5 +132,4 @@ Sub InsertEncashment(lRowNumber As Long, nTotalEncash As Double)
     oSheet.getCellByPosition(5, lRowNumber).setValue(nTotalEncash)
 
     ShowDialog "Інкасація виконана", "Сума інкасації: " & nTotalEncash
-
 End Sub
