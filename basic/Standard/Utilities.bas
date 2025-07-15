@@ -39,7 +39,6 @@ Sub LockFields(oEvent As Object, sFieldNames As String)
     For i = LBound(FieldNames) To UBound(FieldNames)
         oDialog.getControl(FieldNames(i)).Model.ReadOnly = True
     Next i
-
 End Sub
 
 ' =====================================================
@@ -335,7 +334,7 @@ Sub SelectFirstEmptyInA()
     oDoc = ThisComponent
     oSheet = oDoc.CurrentController.ActiveSheet
 
-    iRow = 3 ' начиная с A4
+    iRow = 3 ' починаючи з A4
     Do While oSheet.getCellByPosition(0, iRow).getString() <> ""
         iRow = iRow + 1
     Loop
@@ -355,7 +354,8 @@ Function FilterPlace(nPlace As Long) As Object
     Dim oDoc As Object
     Dim nRowCount As Long
     Dim iRelRow As Long
-    Dim oCell As Object
+    Dim oCellR As Object ' Місце
+    Dim oCellD As Object ' Чорний список
     Dim iAbsRow As Long
 
     Dim oResultRanges As Object
@@ -370,11 +370,14 @@ Function FilterPlace(nPlace As Long) As Object
     Set oResultRanges = oDoc.createInstance("com.sun.star.sheet.SheetCellRanges")
 
     For iRelRow = 0 To nRowCount - 1
-        Set oCell = oRange.getCellByPosition(17, iRelRow) ' колонка R
-        If Val(oCell.getValue()) = nPlace Then
-            iAbsRow = iRelRow + 3 ' бо A4
-            oResultRanges.addRangeAddress _
+        Set oCellR = oRange.getCellByPosition(17, iRelRow)    ' колонка R
+        If Val(oCellR.getValue()) = nPlace Then
+            Set oCellD = oRange.getCellByPosition(3, iRelRow) ' колонка D
+            If Val(oCellD.getValue()) <> 28 Then
+                iAbsRow = iRelRow + 3                         ' бо A4
+                oResultRanges.addRangeAddress _
                 oSheet.getCellRangeByPosition(0, iAbsRow, 20, iAbsRow).RangeAddress, False
+            End If
         End If
     Next iRelRow
 
@@ -407,14 +410,29 @@ Function FilterCompetitors(oFoundRows As Object, oDialog As Object, sAction As S
     ' === Параметри форми ===
     Dim dCurrentDate As Date
     Dim nOffset As Long, nDuration As Long
+    Dim nIndexRow As Long
 
-    dCurrentDate = CDate(oDialog.getControl("CurrentDateField").getText())
-    nOffset = Val(oDialog.getControl("OffsetField").getText())
-    nDuration = Val(oDialog.getControl("DurationCombo").getText())
+    nIndexRow = ThisComponent.CurrentSelection.RangeAddress.StartRow ' індекс рядка
+
+    If (sAction = ACTION_EDIT Or sAction = ACTION_CREATE) And IsObject(oDialog) Then
+        nPlace = Val(oDialog.getControl("PlaceCombo").getText())
+        dCurrentDate = CDate(oDialog.getControl("CurrentDateField").getText())
+        nOffset = Val(oDialog.getControl("OffsetField").getText())
+        nDuration = Val(oDialog.getControl("DurationCombo").getText())
+    End If
+
+    If sAction = ACTION_CHECK_ROW Then
+        nPlace = oSheet.getCellByPosition(17, nIndexRow).getValue()             ' R
+        dCurrentDate = CDate(oSheet.getCellByPosition(0, nIndexRow).getValue()) ' A
+        nOffset = oSheet.getCellByPosition(16, nIndexRow).getValue()            ' Q
+        nDuration = oSheet.getCellByPosition(19, nIndexRow).getValue()          ' T
+    End If
+
+    ' MsgBox "nPlace: " & nPlace & " | dCurrentDate: " & dCurrentDate & " | nOffset: " & nOffset & " | nDuration: " & nDuration
 
     ' === Наш ренж ===
-        dTargetStart = dCurrentDate + nOffset
-        dTargetEnd = dTargetStart + nDuration
+    dTargetStart = dCurrentDate + nOffset
+    dTargetEnd = dTargetStart + nDuration
 
     ' === Порожній результат ===
     Set oFiltered = oDoc.createInstance("com.sun.star.sheet.SheetCellRanges")
@@ -455,18 +473,38 @@ End Function
 ' → Далі фільтрує рядки по перетину дат з нашим ренжем (FilterCompetitors).
 ' → Повертає True, якщо місце вільне, інакше False та показує зайняті рядки.
 Function CheckOccupiedPlace(oDialog As Object, sAction As String) As Boolean
-    Dim nPlace As Long, oFoundRows As Object
-    nPlace = Val(oDialog.getControl("PlaceCombo").getText())
+    Dim nPlace As Long
+    Dim oFoundRows As Object
+    Dim nIndexRow As Long
+    Dim dCurrentDate As Date
+    Dim nOffset As Long
+    Dim dTargetDate As Date
 
+    nIndexRow = ThisComponent.CurrentSelection.RangeAddress.StartRow ' індекс рядка
+
+    If (sAction = ACTION_EDIT Or sAction = ACTION_CREATE) And IsObject(oDialog) Then
+        nPlace = Val(oDialog.getControl("PlaceCombo").getText())
+        dCurrentDate = CDate(oDialog.getControl("CurrentDateField").getText())
+        nOffset = Val(oDialog.getControl("OffsetField").getText())
+    End If
+
+    If sAction = ACTION_CHECK_ROW Then
+        oSheet = ThisComponent.CurrentController.ActiveSheet
+
+        nPlace = oSheet.getCellByPosition(17, nIndexRow).getValue()             ' R
+        dCurrentDate = CDate(oSheet.getCellByPosition(0, nIndexRow).getValue()) ' A
+        nOffset = oSheet.getCellByPosition(16, nIndexRow).getValue()            ' Q
+    End If
+
+    dTargetDate = dCurrentDate + nOffset
     Set oFoundRows = FilterPlace(nPlace)
 
-    'MsgBox "StartRow" & oFoundRows.getRangeAddresses()(0).StartRow & Chr(10) & _
+    ' MsgBox "StartRow" & oFoundRows.getRangeAddresses()(0).StartRow & Chr(10) & _
            ' "EndRow" & oFoundRows.getRangeAddresses()(0).EndRow
 
     ' === якщо редагуємо — виключаємо поточний рядок ===
     If sAction = ACTION_EDIT Then
-        nEditRow = ThisComponent.CurrentSelection.RangeAddress.StartRow
-        oFoundRows = ExcludeRow(oFoundRows, nEditRow)
+        oFoundRows = ExcludeRow(oFoundRows, nIndexRow)
     End If
 
     If oFoundRows Is Nothing Then
@@ -479,7 +517,7 @@ Function CheckOccupiedPlace(oDialog As Object, sAction As String) As Boolean
     ' If oFoundRows Is Nothing Then MsgBox "FilterPlace не знайшов жодного рядка", 48, "FilterCompetitors"
 
     ' MsgBox "StartRow" & oFoundRows.getRangeAddresses()(0).StartRow & Chr(10) & _
-           '"EndRow" & oFoundRows.getRangeAddresses()(0).EndRow, 48, "FilterCompetitors"
+           ' "EndRow" & oFoundRows.getRangeAddresses()(0).EndRow, 48, "FilterCompetitors"
 
     If oFoundRows Is Nothing Then
         CheckOccupiedPlace = True
@@ -488,12 +526,10 @@ Function CheckOccupiedPlace(oDialog As Object, sAction As String) As Boolean
 
     ShowFields oFoundRows, "Можливі перетени діапазонів на цьому місці"
 
-    ' dCurrentDate = CDate(oDialog.getControl("CurrentDateField").getText())
-    ' nOffset = Val(oDialog.getControl("OffsetField").getText())
-    ' dTargetDate = dCurrentDate + nOffset
     ' ShowFields GetOccupiedRows(dtargetDate), "Тестування реньджу"
-
-    MsgDlg "Вільні місця: ", GetVacantPlacesString(GetOccupiedRows(dTargetDate), ", "), False, 65
+    If sAction = ACTION_EDIT Or sAction = ACTION_CREATE Then
+        MsgDlg "Вільні місця: ", GetVacantPlacesString(GetOccupiedRows(dTargetDate), ", "), False, 65
+    End If
 
     CheckOccupiedPlace = False
 End Function
@@ -554,22 +590,38 @@ Sub ShowFields(oFoundRange As Object, sTitle As String)
         lastName = oRow.getCellByPosition(1, 0).String     ' B
         sFullName = oRow.getCellByPosition(2, 0).String    ' С
         checkOut = oRow.getCellByPosition(4, 0).String     ' E
-        created = oRow.getCellByPosition(14, 0).String     ' O
+        Term = oRow.getCellByPosition(19, 0).String        ' O
         place = oRow.getCellByPosition(17, 0).String       ' R
         id = oRow.getCellByPosition(20, 0).String          ' U
 
         sOutput = sOutput & _
-               "Заселення: " & checkIn & Chr(10) & _
-               "Прізвище: " & lastName & Chr(10) & _
-               "ім'я по батькові: " & sFullName & Chr(10) & _
-               "Виселення: " & checkOut & Chr(10) & _
-               "Створено: " & created & Chr(10) & _
-               "id: " & id & Chr(10) & _
-               "Місце: " & place & Chr(10) & String(30, "-") & Chr(10)
+               lastName & " " & sFullName & Chr(10) & _
+               "Місце: " & place & "      Тривалість " & Term & " " & DayWord(Term) & Chr(10) & _
+               "Заселення      |      " & "Виселення" & Chr(10) & _
+               checkIn & "              " & checkOut & Chr(10) & _
+               Chr(10) & _
+               "id: " & id & Chr(10) & String(50, "-") & Chr(10)
     Next i
 
     MsgDlg sTitle, sOutput, True
 End Sub
+
+Function DayWord(n As Long) As String
+    n = Abs(n) Mod 100
+    Dim n1 As Long
+    n1 = n Mod 10
+
+    Select Case True
+        Case n > 10 And n < 20
+            DayWord = "днів"
+        Case n1 = 1
+            DayWord = "день"
+        Case n1 >= 2 And n1 <= 4
+            DayWord = "дні"
+        Case Else
+            DayWord = "днів"
+    End Select
+End Function
 
 ' =====================================================
 ' === Функція ShowPasswordDialog ======================
@@ -744,6 +796,38 @@ Function GetVacantPlacesString(oOccupiedRows As Object, Optional sSeparator As S
         GetVacantPlacesString = ""
     End If
 End Function
+
+' =====================================================
+' === Процедура SetNextId =============================
+' =====================================================
+' → Процедура для встановлення наступного id у колонці 20.
+' → Якщо попередній рядок — другий, то встановлює id = 1.
+' → Інакше бере значення з попереднього рядка і додає 1.
+' → Записує нове значення у поточну клітинку (колонка 20).
+' → Не повертає значення (процедура).
+Sub SetNextId(oSheet As Object, oSel As Object)
+    Dim id As Long
+    Dim currentId As String
+    Dim oCursorAddress As Object
+
+    oCursorAddress = oSel.CellAddress
+
+    ' ==== Перевіряємо, чи вже є id у поточній клітинці ====
+    currentId = Trim(oSheet.getCellByPosition(20, oCursorAddress.Row).String)
+    If Len(currentId) > 0 And Val(currentId) > 0 Then
+        Exit Sub
+    End If
+
+    id = 0
+
+    ' ==== Визначаємо попередній id ====
+    If oCursorAddress.Row - 1 <> 2 Then
+        id = Val(oSheet.getCellByPosition(20, oCursorAddress.Row - 1).String)
+    End If
+
+    ' ==== Встановлюємо наступний id ====
+    oSheet.getCellByPosition(20, oSel.CellAddress.Row).setValue(id + 1)
+End Sub
 
 ' =====================================================
 ' === Функція DiffArrays ==============================
