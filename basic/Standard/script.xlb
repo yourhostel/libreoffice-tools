@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE library:library PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "library.dtd">
+<library:library xmlns:library="http://openoffice.org/2000/library" library:name="Standard" library:readonly="false" library:passwordprotected="false">
+ <library:element library:name="DeleteRecord"/>
+ <library:element library:name="Notification"/>
+ <library:element library:name="CreateRecord"/>
+ <library:element library:name="Fields"/>
+ <library:element library:name="Encashment"/>
+ <library:element library:name="Blacklist"/>
+ <library:element library:name="EditRecord"/>
+ <library:element library:name="Images"/>
+ <library:element library:name="Filters"/>
+ <library:element library:name="Events"/>
+ <library:element library:name="Utilities"/>
+ <library:element library:name="MainVariable"/>
+</library:library>
