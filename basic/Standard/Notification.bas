@@ -1,4 +1,4 @@
-REM  *****  BASIC  *****
+﻿REM  *****  BASIC  *****
 
 ' Notification.bas
 
@@ -9,24 +9,25 @@ REM  *****  BASIC  *****
 ' → Виводить повідомлення користувачу та чекає натискання кнопки OK.
 ' → Додаткове повідомлення (нижнє) є необов’язковим.
 ' → Автоматично підлаштовує висоту діалогу під кількість повідомлень.
-Sub ShowDialog(Title As String, _
-			   MessageTop As String, _
-			   Optional MessageDown As Variant)
+Sub ShowDialog(Title       As String, _
+			   MessageTop  As String, _
+      Optional MessageDown As Variant)
 
-    Dim oDlg As Object, oDlgModel As Object
-    Dim PosY_Button As Integer
-    Dim Height_Dialog As Integer
+    Dim oDlg             As Object
+    Dim oDlgModel        As Object
+    Dim PosY_Button      As Integer
+    Dim Height_Dialog    As Integer
     Dim CheckMessageDown As Boolean
-
+    
     CheckMessageDown = IsMissing(MessageDown) Or Len(Trim(MessageDown)) = 0
     PosY_Button = 30
     Height_Dialog = 50
-
+    
     If Not CheckMessageDown Then
     	PosY_Button = 40
-    	Height_Dialog = 65
+    	Height_Dialog = 65	
     End If
-
+    
     oDlgModel = CreateUnoService("com.sun.star.awt.UnoControlDialogModel")
     oDlg = CreateUnoService("com.sun.star.awt.UnoControlDialog")
     oDlg.setModel(oDlgModel)
@@ -47,12 +48,12 @@ Sub ShowDialog(Title As String, _
     ' WidthField
     ' ReadOnly
     Call FieldTemplate(oDlgModel, "lineTop", MessageTop, 10, 20, "", 210, 0, True)
-
+    
     If Not CheckMessageDown Then
         Call FieldTemplate(oDlgModel, "lineDown", MessageDown, 10, 35, "", 210, 0, True)
-    	PosX_Button = 50
+    	PosX_Button = 50	
     End If
-
+    
     ' ==== Кнопка OK ====
     Call AddButton(oDlgModel, "OKButton", "OK", 90, PosY_Button, 40, 14, 1)
 
@@ -65,15 +66,17 @@ End Sub
 ' === MsgDlg ====================================
 ' → Показує діалог із довгим текстом, що переноситься й має скрол
 ' ===============================================
-Sub MsgDlg(Title As String, _
-         Message As String, _
-         bVScroll As Boolean, _
-         Optional nHeight As Variant)
-
+Sub MsgDlg(sTitle   As String, _
+           Message  As String, _
+           bVScroll As Boolean, _
+  Optional nHeight  As Variant, _
+  Optional nWidth   As Variant)
+         
     Dim oDlg As Object, oDlgModel As Object   ' діалог і його модель
-
+    
     If IsMissing(nHeight) Or Len(Trim(nHeight)) = 0 Then nHeight = 140
-
+    If IsMissing(nWidth) Or Len(Trim(nWidth)) = 0 Then nWidth = 220
+    
     ' створюємо модель діалогу
     oDlgModel = CreateUnoService("com.sun.star.awt.UnoControlDialogModel")
     ' створюємо сам діалог
@@ -82,8 +85,8 @@ Sub MsgDlg(Title As String, _
 
     ' налаштовуємо розмір і заголовок діалогу
     With oDlgModel
-        .Title = Title         ' заголовок вікна
-        .Width = 220           ' ширина діалогу (в пікселях)
+        .Title = sTitle         ' заголовок вікна
+        .Width = nWidth           ' ширина діалогу (в пікселях)
         .Height = nHeight          ' висота діалогу (в пікселях)
     End With
 
@@ -98,7 +101,7 @@ Sub MsgDlg(Title As String, _
         .VScroll = bVScroll        ' вертикальний скрол
         .HScroll = False           ' горизонтальний скрол
         .Text = Message            ' текст повідомлення
-        .Width = 200               ' ширина текстового поля
+        .Width = nWidth - 20       ' ширина текстового поля
         .Height = nHeight - 40     ' висота текстового поля
         .PositionX = 10            ' відступ зліва
         .PositionY = 10            ' відступ зверху
@@ -110,10 +113,13 @@ Sub MsgDlg(Title As String, _
     ' ==== Додаємо кнопку OK ====
     ' Викликаємо підпроцедуру, яка додає кнопку (твоя функція AddButton)
     ' Аргументи: модель, ім'я, текст, X, Y, ширина, висота, тип кнопки
-    AddButton(oDlgModel, "OKButton", "OK", 90, nHeight - 20, 40, 14, 1)
+    AddButton(oDlgModel, "OKButton", "OK", (nWidth - 40) / 2, nHeight - 20, 40, 14, 1)
 
     ' створюємо peer (реалізацію вікна) і показуємо діалог
     oDlg.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
     oDlg.execute()      ' чекає на взаємодію користувача
     oDlg.dispose()      ' закриває й звільняє ресурси
 End Sub
+
+
+

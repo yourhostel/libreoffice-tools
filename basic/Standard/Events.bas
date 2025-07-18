@@ -1,4 +1,4 @@
-REM  *****  BASIC  *****
+﻿REM  *****  BASIC  *****
 
 ' Events.bas
 
@@ -11,12 +11,12 @@ REM  *****  BASIC  *****
 Sub AddTextFieldsOffsetListener(oDialog As Object)
 
     ' ==== Отримання посилань на елементи ====
-    Dim oOffsetControl As Object
-    Dim oReasonControl As Object
+    Dim oOffsetControl      As Object
+    Dim oReasonControl      As Object
     Dim oLabelReasonControl As Object
 
-    Set oOffsetControl = oDialog.getControl("OffsetField")
-    Set oReasonControl = oDialog.getControl("ReasonField")
+    Set oOffsetControl      = oDialog.getControl("OffsetField")
+    Set oReasonControl      = oDialog.getControl("ReasonField")
     Set oLabelReasonControl = oDialog.getControl("ReasonLabel")
 
     ' ==== Встановлення дефолтного стану ====
@@ -43,16 +43,15 @@ End Sub
 ' → Відображає або ховає поле ReasonField та його мітку залежно від значення.
 ' → Реалізує метод інтерфейсу com.sun.star.awt.XTextListener.
 Sub OffsetField_textChanged(oEvent)
-    Dim oDialog As Object
-    Set oDialog = oEvent.Source.getContext()
-
-    Dim oOffset As Object
-    Dim oReason As Object
+    Dim oDialog      As Object
+    Dim oOffset      As Object
+    Dim oReason      As Object
     Dim oLabelReason As Object
-
-    Set oOffset = oDialog.getControl("OffsetField")
-    Set oReason = oDialog.getControl("ReasonField")
-    Set oLabelReason = oDialog.getControl("ReasonLabel")
+    
+    oDialog      = oEvent.Source.getContext()
+    oOffset      = oDialog.getControl("OffsetField")
+    oReason      = oDialog.getControl("ReasonField")
+    oLabelReason = oDialog.getControl("ReasonLabel")
 
     ' Логіка відображення або приховування
     If Val(oOffset.getText()) <> 0 Then
@@ -79,20 +78,20 @@ End Sub
 ' → Відкриває список при кліку та згортає після вибору.
 ' → Також викликає оновлення залежних полів.
 Sub AddCodeComboListeners(oDialog As Object)
-
+    Dim oCombo         As Object
+    Dim oMouseListener As Object
+    Dim oItemListener  As Object
+       
     ' Отримання екземпляру ComboBox за іменем
-    Dim oCombo As Object
     oCombo = oDialog.getControl("CodeCombo")
 
     ' === Слухач миші для події натискання ===
     ' Відповідає за відкриття списку шляхом зміни висоти
-    Dim oMouseListener As Object
     oMouseListener = CreateUnoListener("CodeCombo_", "com.sun.star.awt.XMouseListener")
     oCombo.addMouseListener(oMouseListener)
 
     ' === Слухач вибору елементу зі списку ===
     ' Відповідає за згортання списку після вибору елементу
-    Dim oItemListener As Object
     oItemListener = CreateUnoListener("CodeCombo_", "com.sun.star.awt.XItemListener")
     oCombo.addItemListener(oItemListener)
 End Sub
@@ -104,6 +103,7 @@ End Sub
 ' → Збільшує висоту для візуального відкриття списку.
 Sub CodeCombo_mousePressed(oEvent)
     Dim oControl As Object
+    
     oControl = oEvent.Source.getModel()
     oControl.Height = 110 ' Підняли висоту
 End Sub
@@ -139,12 +139,13 @@ End Sub
 ' → Згортає список, оновлює пов’язані поля та перевіряє зайнятість місця.
 Sub CodeCombo_itemStateChanged(oEvent)
     Dim oControl As Object
-    Dim oDialog As Object
+    Dim oDialog  As Object
+    
     oDialog = oEvent.Source.getContext()
     oControl = oEvent.Source.getModel()
     oControl.Height = 15 ' Скриваємо список
-    Call CalculatePaidFieldWithPlace(oDialog)
-    Call UpdatePlaceCombo(oDialog)
+    CalculatePaidFieldWithPlace(oDialog)
+    UpdatePlaceCombo(oDialog)
 End Sub
 
 ' =====================================================
@@ -162,16 +163,17 @@ End Sub
 ' → Відкриває список при кліку та згортає після вибору.
 ' → Перераховує вартість у полі PaidField.
 Sub AddDurationComboListeners(oDialog As Object)
-    Dim oCombo As Object
+    Dim oCombo         As Object
+    Dim oMouseListener As Object
+    Dim oItemListener  As Object
+    
     oCombo = oDialog.getControl("DurationCombo")
 
     ' ==== Слухач миші для відкриття списку ====
-    Dim oMouseListener As Object
     oMouseListener = CreateUnoListener("DurationCombo_", "com.sun.star.awt.XMouseListener")
     oCombo.addMouseListener(oMouseListener)
 
     ' ==== Слухач вибору елементу ====
-    Dim oItemListener As Object
     oItemListener = CreateUnoListener("DurationCombo_", "com.sun.star.awt.XItemListener")
     oCombo.addItemListener(oItemListener)
 End Sub
@@ -183,6 +185,7 @@ End Sub
 ' → Збільшує висоту для візуального відкриття списку.
 Sub DurationCombo_mousePressed(oEvent)
     Dim oControl As Object
+    
     oControl = oEvent.Source.getModel()
     oControl.Height = 110 ' Відкриваємо список
 End Sub
@@ -218,11 +221,12 @@ End Sub
 ' → Згортає список та перераховує вартість у полі PaidField.
 Sub DurationCombo_itemStateChanged(oEvent)
     Dim oControl As Object
-    Dim oDialog As Object
+    Dim oDialog  As Object
+    
     oDialog = oEvent.Source.getContext()
     oControl = oEvent.Source.getModel()
     oControl.Height = 15 ' Згортаємо ComboBox
-    Call CalculatePaidFieldWithPlace(oDialog)
+    CalculatePaidFieldWithPlace(oDialog)
 End Sub
 
 ' =====================================================
@@ -240,16 +244,17 @@ End Sub
 ' → Відкриває список при кліку та згортає після вибору.
 ' → Виконує перевірку зайнятості місця.
 Sub AddPlaceComboListeners(oDialog As Object)
-    Dim oCombo As Object
+    Dim oCombo         As Object
+    Dim oMouseListener As Object
+    Dim oItemListener  As Object
+    
     oCombo = oDialog.getControl("PlaceCombo")
 
     ' ==== Слухач миші для відкриття списку ====
-    Dim oMouseListener As Object
     oMouseListener = CreateUnoListener("PlaceCombo_", "com.sun.star.awt.XMouseListener")
     oCombo.addMouseListener(oMouseListener)
 
     ' ==== Слухач вибору елементу ====
-    Dim oItemListener As Object
     oItemListener = CreateUnoListener("PlaceCombo_", "com.sun.star.awt.XItemListener")
     oCombo.addItemListener(oItemListener)
 End Sub
@@ -261,6 +266,7 @@ End Sub
 ' → Збільшує висоту для візуального відкриття списку.
 Sub PlaceCombo_mousePressed(oEvent)
     Dim oControl As Object
+    
     oControl = oEvent.Source.getModel()
     oControl.Height = PLACE_COMBO_HEIGHT ' Відкриваємо список
 End Sub
@@ -297,10 +303,11 @@ End Sub
 Sub PlaceCombo_itemStateChanged(oEvent)
     Dim oControl As Object
     Dim oDialog As Object
+    
     oControl = oEvent.Source.getModel()
     oDialog = oEvent.Source.getContext()
     oControl.Height = 15 ' Згортаємо список після вибору
-    Call CalculatePaidFieldWithPlace(oDialog)
+    CalculatePaidFieldWithPlace(oDialog)
 End Sub
 
 ' =====================================================
@@ -310,3 +317,4 @@ End Sub
 ' → Порожня. Забезпечує відповідність інтерфейсу UNO.
 Sub PlaceCombo_disposing(oEvent)
 End Sub
+

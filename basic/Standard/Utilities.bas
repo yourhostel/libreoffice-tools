@@ -1,4 +1,4 @@
-REM  *****  BASIC  *****
+﻿REM  *****  BASIC  *****
 
 ' Utilities.bas
 
@@ -29,7 +29,7 @@ End Function
 Sub LockFields(oEvent As Object, sFieldNames As String)
 	Dim FieldNames() As String
 	FieldNames = Split(sFieldNames, ";")
-
+	
     ' Отримуємо діалог з контексту події
     Dim oDialog As Object
     oDialog = oEvent.Source.getContext()
@@ -208,7 +208,7 @@ Sub CalculatePaidFieldWithPlace(oDialog As Object)
     Dim sSheetName As String
     oDoc = ThisComponent
     sSheetName = "price" & nCode
-
+    
     ' ==== Якщо листа з таким кодом немає → підставляємо price8 ====
     If Not oDoc.Sheets.hasByName(sSheetName) Then
         sSheetName = "price8"
@@ -242,11 +242,11 @@ Sub CalculatePaidFieldWithPlace(oDialog As Object)
 
     ' ==== Встановлюємо ціну у поле Paid ====
     oDialog.getControl("PaidField").setText(CStr(dPrice))
-
+    
     Exit Sub
-
+    
 ErrorHandler:
-	ShowDialog "Помилка", "Не знайдено лист 'price" & nCode & "'. Перевірте правильність коду."
+	ShowDialog "Помилка", "Не знайдено лист 'price" & nCode & "'. Перевірте правильність коду."   
 End Sub
 
 ' =====================================================
@@ -258,10 +258,10 @@ End Sub
 Sub UpdatePlaceCombo(oDialog As Object, _
             Optional sAction As String, _
             Optional sPlace As String)
-    ' ==== Ініціалізуємо опційні аргументи ====
+    ' ==== Ініціалізуємо опційні аргументи ====       
     If IsMissing(sAction) Then sAction = ""
     If IsMissing(sPlace) Then sPlace = ""
-
+    
     Dim oDoc As Object, oSheet As Object
     Dim oCombo As Object
     Dim iRow As Long
@@ -269,13 +269,13 @@ Sub UpdatePlaceCombo(oDialog As Object, _
     Dim iCount As Integer      ' кількість знайдених місць
     Dim nCode As Long          ' код, вибраний у CodeCombo
     Dim sSheetName As String   ' назва аркуша з цінами
-
+    
     iCount = 0
     ' ==== Отримуємо вибраний код та формуємо ім’я аркуша ====
     nCode = Val(oDialog.getControl("CodeCombo").getText())
     oDoc = ThisComponent
     sSheetName = "price" & nCode
-
+    
     ' ==== Якщо аркуш з таким кодом не знайдено — fallback на price8 ====
     If Not oDoc.Sheets.hasByName(sSheetName) Then
         sSheetName = "price8"
@@ -313,7 +313,7 @@ Sub UpdatePlaceCombo(oDialog As Object, _
 	Else
     	PLACE_COMBO_HEIGHT = 15 + iCount * 9
 	End If
-
+	
     Exit Sub
 
 ErrorHandler:
@@ -348,7 +348,7 @@ End Sub
 ' =====================================================
 ' → Повертає діапазон (XCellRange), де місце = nPlace
 ' → Працює в памʼяті, таблицю не чіпає.
-Function FilterPlace(nPlace As Long) As Object
+Function FilterPlace(nPlace As Long, sAction As String) As Object
     Dim oRange As Object
     Dim oSheet As Object
     Dim oDoc As Object
@@ -368,7 +368,7 @@ Function FilterPlace(nPlace As Long) As Object
 
     ' створюємо об'єкт для збирання діапазонів через документ
     Set oResultRanges = oDoc.createInstance("com.sun.star.sheet.SheetCellRanges")
-
+       
     For iRelRow = 0 To nRowCount - 1
         Set oCellR = oRange.getCellByPosition(17, iRelRow)    ' колонка R
         If Val(oCellR.getValue()) = nPlace Then
@@ -377,7 +377,7 @@ Function FilterPlace(nPlace As Long) As Object
                 iAbsRow = iRelRow + 3                         ' бо A4
                 oResultRanges.addRangeAddress _
                 oSheet.getCellRangeByPosition(0, iAbsRow, 20, iAbsRow).RangeAddress, False
-            End If
+            End If    
         End If
     Next iRelRow
 
@@ -411,29 +411,29 @@ Function FilterCompetitors(oFoundRows As Object, oDialog As Object, sAction As S
     Dim dCurrentDate As Date
     Dim nOffset As Long, nDuration As Long
     Dim nIndexRow As Long
-
+    
     nIndexRow = ThisComponent.CurrentSelection.RangeAddress.StartRow ' індекс рядка
-
+    
     If (sAction = ACTION_EDIT Or sAction = ACTION_CREATE) And IsObject(oDialog) Then
         nPlace = Val(oDialog.getControl("PlaceCombo").getText())
         dCurrentDate = CDate(oDialog.getControl("CurrentDateField").getText())
         nOffset = Val(oDialog.getControl("OffsetField").getText())
         nDuration = Val(oDialog.getControl("DurationCombo").getText())
     End If
-
-    If sAction = ACTION_CHECK_ROW Then
+    
+    If sAction = ACTION_CHECK_ROW Then      
         nPlace = oSheet.getCellByPosition(17, nIndexRow).getValue()             ' R
         dCurrentDate = CDate(oSheet.getCellByPosition(0, nIndexRow).getValue()) ' A
         nOffset = oSheet.getCellByPosition(16, nIndexRow).getValue()            ' Q
         nDuration = oSheet.getCellByPosition(19, nIndexRow).getValue()          ' T
     End If
-
+    
     ' MsgBox "nPlace: " & nPlace & " | dCurrentDate: " & dCurrentDate & " | nOffset: " & nOffset & " | nDuration: " & nDuration
-
+    
     ' === Наш ренж ===
     dTargetStart = dCurrentDate + nOffset
-    dTargetEnd = dTargetStart + nDuration
-
+    dTargetEnd = dTargetStart + nDuration   
+    
     ' === Порожній результат ===
     Set oFiltered = oDoc.createInstance("com.sun.star.sheet.SheetCellRanges")
 
@@ -473,64 +473,64 @@ End Function
 ' → Далі фільтрує рядки по перетину дат з нашим ренжем (FilterCompetitors).
 ' → Повертає True, якщо місце вільне, інакше False та показує зайняті рядки.
 Function CheckOccupiedPlace(oDialog As Object, sAction As String) As Boolean
-    Dim nPlace As Long
+    Dim nPlace As Long 
     Dim oFoundRows As Object
     Dim nIndexRow As Long
     Dim dCurrentDate As Date
     Dim nOffset As Long
     Dim dTargetDate As Date
-
+    
     nIndexRow = ThisComponent.CurrentSelection.RangeAddress.StartRow ' індекс рядка
-
+    
     If (sAction = ACTION_EDIT Or sAction = ACTION_CREATE) And IsObject(oDialog) Then
         nPlace = Val(oDialog.getControl("PlaceCombo").getText())
         dCurrentDate = CDate(oDialog.getControl("CurrentDateField").getText())
         nOffset = Val(oDialog.getControl("OffsetField").getText())
     End If
-
+    
     If sAction = ACTION_CHECK_ROW Then
-        oSheet = ThisComponent.CurrentController.ActiveSheet
-
+        oSheet = ThisComponent.CurrentController.ActiveSheet      
+ 
         nPlace = oSheet.getCellByPosition(17, nIndexRow).getValue()             ' R
         dCurrentDate = CDate(oSheet.getCellByPosition(0, nIndexRow).getValue()) ' A
         nOffset = oSheet.getCellByPosition(16, nIndexRow).getValue()            ' Q
     End If
-
-    dTargetDate = dCurrentDate + nOffset
-    Set oFoundRows = FilterPlace(nPlace)
-
-    ' MsgBox "StartRow" & oFoundRows.getRangeAddresses()(0).StartRow & Chr(10) & _
+    
+    dTargetDate = dCurrentDate + nOffset 
+    Set oFoundRows = FilterPlace(nPlace, sAction)
+    
+   '  MsgBox "StartRow" & oFoundRows.getRangeAddresses()(0).StartRow & Chr(10) & _
            ' "EndRow" & oFoundRows.getRangeAddresses()(0).EndRow
-
+    
     ' === якщо редагуємо — виключаємо поточний рядок ===
     If sAction = ACTION_EDIT Then
         oFoundRows = ExcludeRow(oFoundRows, nIndexRow)
     End If
-
+    
     If oFoundRows Is Nothing Then
         CheckOccupiedPlace = True
         Exit Function
     End If
 
-    Set oFoundRows = FilterCompetitors(oFoundRows, oDialog, sAction)
-
+    Set oFoundRows = FilterCompetitors(oFoundRows, oDialog, sAction) 
+    
     ' If oFoundRows Is Nothing Then MsgBox "FilterPlace не знайшов жодного рядка", 48, "FilterCompetitors"
-
-    ' MsgBox "StartRow" & oFoundRows.getRangeAddresses()(0).StartRow & Chr(10) & _
-           ' "EndRow" & oFoundRows.getRangeAddresses()(0).EndRow, 48, "FilterCompetitors"
-
+    
+     ' MsgBox "StartRow" & oFoundRows.getRangeAddresses()(0).StartRow & Chr(10) & _
+            ' "EndRow" & oFoundRows.getRangeAddresses()(0).EndRow, 48, "FilterCompetitors"
+           
     If oFoundRows Is Nothing Then
         CheckOccupiedPlace = True
         Exit Function
     End If
 
     ShowFields oFoundRows, "Можливі перетени діапазонів на цьому місці"
-
+     
     ' ShowFields GetOccupiedRows(dtargetDate), "Тестування реньджу"
     If sAction = ACTION_EDIT Or sAction = ACTION_CREATE Then
         MsgDlg "Вільні місця: ", GetVacantPlacesString(GetOccupiedRows(dTargetDate), ", "), False, 65
     End If
-
+        
     CheckOccupiedPlace = False
 End Function
 
@@ -542,22 +542,26 @@ End Function
 ' → Якщо `oRanges` порожній або після виключення немає жодного рядка — повертає Nothing.
 Function ExcludeRow(oRanges As Object, nRowToExclude As Long) As Object
     If oRanges Is Nothing Then
-        Set ExcludeRow = Nothing
+        ExcludeRow = Nothing
         Exit Function
     End If
-
-    Dim oDoc As Object, oSheet As Object, oResult As Object, i As Long
-    Dim oRow As Object
-    Set oDoc = ThisComponent
-    Set oSheet = oDoc.CurrentController.ActiveSheet
-    Set oResult = oDoc.createInstance("com.sun.star.sheet.SheetCellRanges")
+    
+    Dim oDoc    As Object
+    Dim oSheet  As Object
+    Dim oResult As Object
+    Dim i       As Long
+    Dim oRow    As Object
+    
+    oDoc = ThisComponent
+    oSheet = oDoc.CurrentController.ActiveSheet
+    oResult = oDoc.createInstance("com.sun.star.sheet.SheetCellRanges")   
 
     For i = 0 To oRanges.getCount() - 1
         Set oRow = oRanges.getByIndex(i)
         If oRow.RangeAddress.StartRow <> nRowToExclude Then
             oResult.addRangeAddress oRow.RangeAddress, False
         End If
-    Next i
+    Next i       
 
     If oResult.getCount() = 0 Then
         Set ExcludeRow = Nothing
@@ -573,33 +577,37 @@ End Function
 ' → Виводить A, B, С, E, O, R (заселення, прізвище, ім'я по батькові, виселення, створено, місце)
 Sub ShowFields(oFoundRange As Object, sTitle As String)
     Dim nRangeCount As Long
-    Dim i As Long
-    Dim sOutput As String
+    Dim i           As Long
+    Dim sOutput     As String
 
     nRangeCount = oFoundRange.getCount()
     sOutput = ""
 
     For i = 0 To nRangeCount - 1
-        Dim oRow As Object
-        Dim checkIn As String, lastName As String
-        Dim checkOut As String, created As String, place As String, id As String
+        Dim oRow     As Object
+        Dim checkIn  As String
+        Dim lastName As String
+        Dim checkOut As String
+        Dim created  As String
+        Dim place    As String
+        Dim id       As String
 
         Set oRow = oFoundRange.getByIndex(i)
 
-        checkIn = oRow.getCellByPosition(0, 0).String      ' A
         lastName = oRow.getCellByPosition(1, 0).String     ' B
         sFullName = oRow.getCellByPosition(2, 0).String    ' С
-        checkOut = oRow.getCellByPosition(4, 0).String     ' E
-        Term = oRow.getCellByPosition(19, 0).String        ' O
         place = oRow.getCellByPosition(17, 0).String       ' R
+        Term = oRow.getCellByPosition(19, 0).String        ' O
+        checkIn = oRow.getCellByPosition(0, 0).String      ' A
+        checkOut = oRow.getCellByPosition(4, 0).String     ' E
         id = oRow.getCellByPosition(20, 0).String          ' U
 
         sOutput = sOutput & _
                lastName & " " & sFullName & Chr(10) & _
-               "Місце: " & place & "      Тривалість " & Term & " " & DayWord(Term) & Chr(10) & _
+               "Місце: " & place & "      Тривалість " & Term & " " & DayWord(Term) & Chr(10) & _         
                "Заселення      |      " & "Виселення" & Chr(10) & _
-               checkIn & "              " & checkOut & Chr(10) & _
-               Chr(10) & _
+               checkIn & "              " & checkOut & Chr(10) & _               
+               Chr(10) & _              
                "id: " & id & Chr(10) & String(50, "-") & Chr(10)
     Next i
 
@@ -607,8 +615,9 @@ Sub ShowFields(oFoundRange As Object, sTitle As String)
 End Sub
 
 Function DayWord(n As Long) As String
-    n = Abs(n) Mod 100
     Dim n1 As Long
+    
+    n = Abs(n) Mod 100
     n1 = n Mod 10
 
     Select Case True
@@ -658,7 +667,8 @@ Function ShowPasswordDialog(sExpectedPassword As String) As Boolean
 
     ' створюємо peer
     oDialog.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
-
+    
+    ' Приховуємо пароль під час введення
     oDialog.getControl("PasswordField").Model.EchoChar = Asc("*")
 
     ' виконуємо діалог
@@ -674,67 +684,20 @@ Function ShowPasswordDialog(sExpectedPassword As String) As Boolean
 End Function
 
 ' =====================================================
-' === Функція GetAfterLastEncashRange =================
-' =====================================================
-' → Визначає діапазон рядків для інкасації.
-' → Шукає останній запис інкасації та порожній рядок у колонці E.
-' → Повертає масив [start, end].
-' → Якщо немає що інкасувати — повертає [0, 0].
-Function GetAfterLastEncashRange() As Variant
-    Dim oSheet      As Object
-    Dim lStartRow   As Long
-    Dim lEndRow     As Long
-    Dim lCheckRow   As Long
-
-    oSheet = ThisComponent.Sheets(0)
-
-    lStartRow = 0
-    lEndRow = 0
-
-    ' === знаходимо перший порожній рядок у колонці E (вниз від A4) ===
-    For lCheckRow = 3 To oSheet.Rows.Count - 1
-        If Trim(oSheet.getCellByPosition(4, lCheckRow).String) = "" Then
-            lEndRow = lCheckRow - 1
-            Exit For
-        End If
-    Next
-
-    ' якщо порожнього так і не знайшли — беремо останній рядок аркуша
-    If lEndRow = 0 Then lEndRow = oSheet.Rows.Count - 1
-
-    ' === знаходимо останню інкасацію від lEndRow вгору ===
-    For lCheckRow = lEndRow To 3 Step -1
-        If Trim(oSheet.getCellByPosition(4, lCheckRow).String) = ENCASH Then
-            lStartRow = lCheckRow + 1
-            Exit For
-        End If
-    Next
-
-    ' якщо інкасацій не знайшли — стартуємо з A4
-    If lStartRow = 0 Then lStartRow = 3
-
-    ' перевіряємо коректність діапазону
-    If lEndRow < lStartRow Then
-        GetAfterLastEncashRange = Array(0, 0) ' немає діапазону
-    Else
-        GetAfterLastEncashRange = Array(lStartRow, lEndRow)
-    End If
-End Function
-
-' =====================================================
 ' === Функція GetOccupiedRows =========================
 ' =====================================================
 ' → Повертає SheetCellRanges із зайнятими місцями на вказану дату.
 ' → Перевіряє діапазон [CheckIn, CheckOut] і виключає ENCASH.
 ' → Результат: XSheetCellRanges.
 Function GetOccupiedRows(targetDate As Date) As Object
-    Dim oSheet As Object
-    Dim oRanges As Object
-    Dim oRange As Object
-    Dim nRows As Long
-    Dim i As Long
+    Dim oSheet    As Object
+    Dim oRanges   As Object
+    Dim oRange    As Object
+    Dim nRows     As Long
+    Dim i         As Long
     Dim sCheckOut As String
-    Dim dCheckIn As Date, dCheckOut As Date
+    Dim dCheckIn  As Date
+    Dim dCheckOut As Date
 
     oRange = GetRecordsRange()
     oSheet = oRange.Spreadsheet
@@ -748,7 +711,7 @@ Function GetOccupiedRows(targetDate As Date) As Object
         sCheckOut = oSheet.getCellByPosition(4, i + 3).String
         On Error GoTo 0
 
-        If sCheckOut <> ENCASH Then
+        If sCheckOut <> ENCASH And sCheckOut <> BALANCE Then
             dCheckOut = CDate(sCheckOut)
             If dCheckIn <= targetDate And targetDate <= dCheckOut Then
                 oRanges.addRangeAddress _
@@ -768,11 +731,11 @@ End Function
 ' → Результат: рядок вільних місць.
 Function GetVacantPlacesString(oOccupiedRows As Object, Optional sSeparator As String) As String
     If IsMissing(sSeparator) Then sSeparator = ";"
-
-    Dim aAllPlaces() As String
+    
+    Dim aAllPlaces()      As String
     Dim aOccupiedPlaces() As String
-    Dim aVacantPlaces() As String
-    Dim i As Long
+    Dim aVacantPlaces()   As String
+    Dim i                 As Long
 
     ' Всі місця
     aAllPlaces = Split(ALL_PLACES, ";")
@@ -806,8 +769,8 @@ End Function
 ' → Записує нове значення у поточну клітинку (колонка 20).
 ' → Не повертає значення (процедура).
 Sub SetNextId(oSheet As Object, oSel As Object)
-    Dim id As Long
-    Dim currentId As String
+    Dim id             As Long
+    Dim currentId      As String
     Dim oCursorAddress As Object
 
     oCursorAddress = oSel.CellAddress
@@ -836,8 +799,10 @@ End Sub
 ' → Використовується для визначення вільних місць.
 ' → Результат: масив строк.
 Function DiffArrays(A As Variant, B As Variant) As Variant
-    Dim C() As String
-    Dim i As Long, j As Long, n As Long
+    Dim C()   As String
+    Dim i     As Long
+    Dim j     As Long
+    Dim n     As Long
     Dim isInB As Boolean
 
     ReDim C(UBound(A))
@@ -874,17 +839,18 @@ End Function
 Sub ShowArray(arr As Variant)
     Dim s As String
     Dim i As Long
-
+    
     If IsEmpty(arr) Then
         MsgBox "Масив порожній", 64, "Результат"
         Exit Sub
     End If
-
+    
     s = ""
     For i = LBound(arr) To UBound(arr)
         s = s & arr(i)
         If i < UBound(arr) Then s = s & ", "
     Next i
-
+    
     MsgBox s, 64, "Результат"
 End Sub
+

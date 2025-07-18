@@ -6,121 +6,147 @@
 
 **LibreOffice macros for UI forms and automation.**
 
-Набір макросів для LibreOffice для автоматизації заповнення таблиць через діалогові вікна.   
-Логіка написана на LibreOffice Basic.
-
-## Features
-- Dialog-based UI creation
-- Macros in LibreOffice Basic
-
 ## Structure
 ```txt
-libreoffice-tools
-├── basic
-│   └── Standard
-│       ├── Buttons.bas
-│       │   └── AddButton
-│       │
-│       ├── CreateRecord.bas
-│       │   ├── StartCreate
-│       │   ├── ShowForm
-│       │   ├── InsertButton_actionPerformed
-│       │   ├── InsertButton_disposing
-│       │   ├── ValidateSelection
-│       │   ├── OffsetReasonValidation
-│       │   ├── OffsetReasonInsertion
-│       │   ├── DateRangeInsertion
-│       │   ├── PersonDataValidation
-│       │   ├── PersonDataInsertion
-│       │   ├── PaidInsertion
-│       │   ├── FinanceAreNumbersValidation
-│       │   ├── FinanceCommentValidation
-│       │   ├── FinanceInsertion
-│       │   ├── IsPhoneMinimalValid
-│       │   ├── PhoneValidation
-│       │   ├── PhoneInsertion
-│       │   ├── PassportDataValidation
-│       │   ├── BirthDateValidation
-│       │   ├── DateFormatValidation
-│       │   ├── PassportBirthInsertion
-│       │   ├── HostelInsertion
-│       │   ├── CodeInsertion
-│       │   ├── PlaceInsertion
-│       │   ├── CreateDialog
-│       │   └── ShowPassportInvalid
-│       │
-│       ├── EditRecord.bas
-│       │   ├── StartEdit
-│       │   ├── IsInAllowedColumns
-│       │   ├── IsInAllowedRows
-│       │   ├── FindEditRange
-│       │   └── MoveCursorToColumnA
-│       │
-│       ├── Events.bas
-│       │   ├── AddTextFieldsOffsetListener
-│       │   ├── OffsetField_textChanged
-│       │   ├── OffsetField_disposing
-│       │   ├── AddCodeComboListeners
-│       │   ├── CodeCombo_mousePressed
-│       │   ├── CodeCombo_mouseReleased
-│       │   ├── CodeCombo_mouseEntered
-│       │   ├── CodeCombo_mouseExited
-│       │   ├── CodeCombo_itemStateChanged
-│       │   ├── CodeCombo_disposing
-│       │   ├── AddDurationComboListeners
-│       │   ├── DurationCombo_mousePressed
-│       │   ├── DurationCombo_mouseReleased
-│       │   ├── DurationCombo_mouseEntered
-│       │   ├── DurationCombo_mouseExited
-│       │   ├── DurationCombo_itemStateChanged
-│       │   ├── DurationCombo_disposing
-│       │   ├── AddPlaceComboListeners
-│       │   ├── PlaceCombo_mousePressed
-│       │   ├── PlaceCombo_mouseReleased
-│       │   ├── PlaceCombo_mouseEntered
-│       │   ├── PlaceCombo_mouseExited
-│       │   ├── PlaceCombo_itemStateChanged
-│       │   └── PlaceCombo_disposing
-│       │
-│       ├── Fields.bas
-│       │   ├── FieldTemplate
-│       │   └── ComboBoxTemplate
-│       │
-│       ├── Filters.bas
-│       │   ├── PeopleTodayFilter
-│       │   ├── PersonWord
-│       │   ├── CountVisibleRows
-│       │   ├── ResetPeopleTodayFilter
-│       │   ├── ResetFilter
-│       │   └── GetPeopleRange
-│       │
-│       ├── Images.bas
-│       │   └── AddLogo
-│       │
-│       ├── MainVariable.bas
-│       │   └── GetFieldToColumnMap
-│       │
-│       ├── Notification.bas
-│       │   └── ShowDialog
-│       │
-│       └── Utilities.bas
-│           ├── Capitalize
-│           ├── LockFields
-│           ├── CreateMap
-│           ├── MapPut
-│           ├── MapGet
-│           ├── MapHasKey
-│           ├── AppendArray
-│           ├── CalculatePaidFieldWithPlace
-│           ├── UpdatePlaceCombo
-│           ├── SelectFirstEmptyInA
-│           ├── IsPlaceOccupiedToday
-│           ├── DebugGun
-│           └── CheckOccupiedPlace
+Standard
+├── Blacklist
+│   ├── BlacklistStart
+│   ├── ShowBlacklistInstructions
+│   ├── AddToBlacklist
+│   ├── RemoveFromBlacklist
+│   ├── FilterBlacklist
+│   └── ToggleBlacklistFilter
 │
-├── .gitignore
-├── README.md
-└── LICENSE
+├── CreateRecord
+│   ├── StartCreate
+│   ├── ShowForm
+│   ├── InsertButton_actionPerformed
+│   ├── InsertButton_disposing
+│   ├── OffsetReasonValidation
+│   ├── OffsetReasonInsertion
+│   ├── DateRangeInsertion
+│   ├── PersonDataValidation
+│   ├── PersonDataInsertion
+│   ├── PaidInsertion
+│   ├── FinanceAreNumbersValidation
+│   ├── FinanceCommentValidation
+│   ├── FinanceInsertion
+│   ├── IsPhoneMinimalValid
+│   ├── PhoneValidation
+│   ├── PhoneInsertion
+│   ├── PassportDataValidation
+│   ├── ShowPassportInvalid
+│   ├── BirthDateValidation
+│   ├── DateFormatValidation
+│   ├── PassportBirthInsertion
+│   ├── HostelInsertion
+│   ├── CodeInsertion
+│   ├── PlaceInsertion
+│   ├── CreateDialog
+│   ├── FormInitialization
+│   └── ChoiceButtonName
+│
+├── DeleteRecord
+│   └── DeleteRow
+│
+├── EditRecord
+│   ├── StartEdit
+│   ├── ReadFromTable
+│   ├── ShowFieldsInMsgBox
+│   ├── IsInAllowedColumns
+│   ├── IsInAllowedRows
+│   ├── isBelowEncashRange
+│   ├── MoveCursorToColumnA
+│   ├── FormatHistoryLine
+│   └── AppendHistory
+│
+├── Encashment
+│   ├── DoEncashment
+│   ├── CalculateEncashment
+│   ├── InsertEncashment
+│   ├── GetAfterLastEncashRange
+│   ├── AddFinancialRow
+│   ├── ShowFinDialog
+│   ├── ValidationFinData
+│   └── FormatFinLine
+│
+├── Events
+│   ├── AddTextFieldsOffsetListener
+│   ├── OffsetField_textChanged
+│   ├── OffsetField_disposing
+│   ├── AddCodeComboListeners
+│   ├── CodeCombo_mousePressed
+│   ├── CodeCombo_mouseReleased
+│   ├── CodeCombo_mouseEntered
+│   ├── CodeCombo_mouseExited
+│   ├── CodeCombo_itemStateChanged
+│   ├── CodeCombo_disposing
+│   ├── AddDurationComboListeners
+│   ├── DurationCombo_mousePressed
+│   ├── DurationCombo_mouseReleased
+│   ├── DurationCombo_mouseEntered
+│   ├── DurationCombo_mouseExited
+│   ├── DurationCombo_itemStateChanged
+│   ├── DurationCombo_disposing
+│   ├── AddPlaceComboListeners
+│   ├── PlaceCombo_mousePressed
+│   ├── PlaceCombo_mouseReleased
+│   ├── PlaceCombo_mouseEntered
+│   ├── PlaceCombo_mouseExited
+│   ├── PlaceCombo_itemStateChanged
+│   └── PlaceCombo_disposing
+│
+├── Fields
+│   ├── FieldTemplate
+│   ├── ComboBoxTemplate
+│   ├── AddButton
+│   └── OptionGroupTemplate
+│
+├── Filters
+│   ├── PeopleTodayFilter
+│   ├── ShowCountResults
+│   ├── PersonWord
+│   ├── CountVisibleRows
+│   ├── ResetFilter
+│   ├── ResetPeopleTodayFilter
+│   ├── GetRecordsRange
+│   └── DebugRangeValues
+│
+├── Images
+│   └── AddLogo
+│
+├── MainVariable
+│   └── GetFieldToColumnMap
+│
+├── Notification
+│   ├── ShowDialog
+│   └── MsgDlg
+│
+└── Utilities
+    ├── Capitalize
+    ├── LockFields
+    ├── CreateMap
+    ├── MapPut
+    ├── MapGet
+    ├── MapHasKey
+    ├── MapGetByIndex
+    ├── AppendArray
+    ├── MapClear
+    ├── CalculatePaidFieldWithPlace
+    ├── UpdatePlaceCombo
+    ├── SelectFirstEmptyInA
+    ├── FilterPlace
+    ├── FilterCompetitors
+    ├── CheckOccupiedPlace
+    ├── ExcludeRow
+    ├── ShowFields
+    ├── DayWord
+    ├── ShowPasswordDialog
+    ├── GetOccupiedRows
+    ├── GetVacantPlacesString
+    ├── SetNextId
+    ├── DiffArrays
+    └── ShowArray
 ```
 
 ```bash
