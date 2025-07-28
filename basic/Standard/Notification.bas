@@ -2,66 +2,6 @@
 
 ' Notification.bas
 
-' =====================================================
-' === Процедура ShowDialog ============================
-' =====================================================
-' → Створює невеликий діалог з заголовком та одним або двома повідомленнями.
-' → Виводить повідомлення користувачу та чекає натискання кнопки OK.
-' → Додаткове повідомлення (нижнє) є необов’язковим.
-' → Автоматично підлаштовує висоту діалогу під кількість повідомлень.
-Sub ShowDialog(Title       As String, _
-			   MessageTop  As String, _
-      Optional MessageDown As Variant)
-
-    Dim oDlg             As Object
-    Dim oDlgModel        As Object
-    Dim PosY_Button      As Integer
-    Dim Height_Dialog    As Integer
-    Dim CheckMessageDown As Boolean
-    
-    CheckMessageDown = IsMissing(MessageDown) Or Len(Trim(MessageDown)) = 0
-    PosY_Button = 30
-    Height_Dialog = 50
-    
-    If Not CheckMessageDown Then
-    	PosY_Button = 40
-    	Height_Dialog = 65	
-    End If
-    
-    oDlgModel = CreateUnoService("com.sun.star.awt.UnoControlDialogModel")
-    oDlg = CreateUnoService("com.sun.star.awt.UnoControlDialog")
-    oDlg.setModel(oDlgModel)
-
-    With oDlgModel
-        .Title = Title
-        .Width = 220
-        .Height = Height_Dialog
-    End With
-
-    ' ==== FieldTemplate тільки для мітки без поля ====
-    ' NamePrefix
-    ' LabelText
-    ' PositionX
-    ' PositionY
-    ' vText
-    ' WidthLabel
-    ' WidthField
-    ' ReadOnly
-    Call FieldTemplate(oDlgModel, "lineTop", MessageTop, 10, 20, "", 210, 0, True)
-    
-    If Not CheckMessageDown Then
-        Call FieldTemplate(oDlgModel, "lineDown", MessageDown, 10, 35, "", 210, 0, True)
-    	PosX_Button = 50	
-    End If
-    
-    ' ==== Кнопка OK ====
-    Call AddButton(oDlgModel, "OKButton", "OK", 90, PosY_Button, 40, 14, 1)
-
-    oDlg.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
-    oDlg.execute()
-    oDlg.dispose()
-End Sub
-
 ' ===============================================
 ' === MsgDlg ====================================
 ' → Показує діалог із довгим текстом, що переноситься й має скрол
@@ -72,7 +12,8 @@ Sub MsgDlg(sTitle   As String, _
   Optional nHeight  As Variant, _
   Optional nWidth   As Variant)
          
-    Dim oDlg As Object, oDlgModel As Object   ' діалог і його модель
+    Dim oDlg      As Object
+    Dim oDlgModel As Object   ' діалог і його модель
     
     If IsMissing(nHeight) Or Len(Trim(nHeight)) = 0 Then nHeight = 140
     If IsMissing(nWidth) Or Len(Trim(nWidth)) = 0 Then nWidth = 220
@@ -85,30 +26,53 @@ Sub MsgDlg(sTitle   As String, _
 
     ' налаштовуємо розмір і заголовок діалогу
     With oDlgModel
-        .Title = sTitle         ' заголовок вікна
-        .Width = nWidth           ' ширина діалогу (в пікселях)
+        .Title = sTitle            ' заголовок вікна
+        .Width = nWidth            ' ширина діалогу (в пікселях)
         .Height = nHeight          ' висота діалогу (в пікселях)
+        '.BackgroundColor = RGB(0, 0, 170)
     End With
 
+    AddBackground(oDlgModel, BACKGROUND)
+    
     ' ==== Створюємо багаторядкове текстове поле ====
     Dim oTextModel As Object   ' модель текстового поля
-    ' правильний клас моделі: UnoControlEditModel
+    ' клас моделі: UnoControlEditModel
     oTextModel = oDlgModel.createInstance("com.sun.star.awt.UnoControlEditModel")
     With oTextModel
-        .Name = "MessageBox"       ' ім'я елемента
+        .Name      = "MessageBox"  ' ім'я елемента
         .MultiLine = True          ' багаторядковий режим
-        .ReadOnly = True           ' тільки для читання
-        .VScroll = bVScroll        ' вертикальний скрол
-        .HScroll = False           ' горизонтальний скрол
-        .Text = Message            ' текст повідомлення
-        .Width = nWidth - 20       ' ширина текстового поля
-        .Height = nHeight - 40     ' висота текстового поля
+        .ReadOnly  = True          ' тільки для читання
+        .VScroll   = bVScroll      ' вертикальний скрол
+        .HScroll   = False         ' горизонтальний скрол
+        .Text      = Message       ' текст повідомлення
+        .Width     = nWidth - 20   ' ширина текстового поля
+        .Height    = nHeight - 40  ' висота текстового поля
         .PositionX = 10            ' відступ зліва
         .PositionY = 10            ' відступ зверху
+        .TextColor = RGB(255, 255, 255)
+        .BackgroundColor = RGB(22, 11, 172)
     End With
+    
+    
 
     ' додаємо текстове поле на діалог
     oDlgModel.insertByName("MessageBox", oTextModel)
+    
+    'Dim oLbl
+    'oLbl = oDlgModel.createInstance("com.sun.star.awt.UnoControlFixedTextModel")
+
+    'With oLbl
+        '.Name = "MyLabel"
+        '.Label = Message
+        '.PositionX = 10
+        '.PositionY = 10
+        '.Width = nWidth - 20
+        '.Height = nHeight - 40
+        '.TextColor = RGB(255,255,255) ' Білий шрифт
+    'End With
+
+    'oDlgModel.insertByName(oLbl.Name, oLbl)
+    
 
     ' ==== Додаємо кнопку OK ====
     ' Викликаємо підпроцедуру, яка додає кнопку (твоя функція AddButton)
@@ -120,6 +84,4 @@ Sub MsgDlg(sTitle   As String, _
     oDlg.execute()      ' чекає на взаємодію користувача
     oDlg.dispose()      ' закриває й звільняє ресурси
 End Sub
-
-
 

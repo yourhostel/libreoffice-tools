@@ -6,7 +6,7 @@ Dim FormResult As Boolean
 
 Sub StartCreate()
     ' False - не шукає першу порожню комірку по стовпцю А. (SelectFirstEmptyInA)
-    ResetPeopleTodayFilter(False) 
+    ResetFilterlimited 
     ShowForm(ACTION_CREATE)
 End Sub
 
@@ -16,32 +16,45 @@ End Sub
 ' → Запускає діалог введення нового запису.
 ' → Відображає форму, підключає слухачі, перевіряє введені дані та вставляє їх у таблицю.
 ' → Повертає рядок: "OK" — якщо дані збережені, "Cancel" — якщо відмінено.
-Function ShowForm(sAction As String) As String  
-    Dim oButtonInsert   As Object
-    Dim oDialog         As Object
-    Dim oListenerInsert As Object
+Sub ShowForm(sAction As String) As String
+    Dim oDialog           As Object  
+    Dim oButtonInsert     As Object
+    Dim oListenerInsert   As Object
+    
+    Dim oButtonDataById   As Object
+    Dim oListenerDataById As Object
+    
     Dim sResult         As String
     
     FormResult = False 
-    Set oDialog = CreateDialog(sAction)
-
-    ' === Кнопка Вставити ===
-    oButtonInsert = oDialog.getControl("InsertButton")
-
-    ' === Обробник кнопки ===
+    oDialog = CreateDialog(sAction)
+    
+    AddCheckInDataListener(oDialog, sAction)
+    AddDurationComboListeners(oDialog)    
+    AddCodeComboListeners(oDialog)    
+    AddPlaceComboListeners(oDialog)
+    AddFinListeners(oDialog)
+    
+    ' === Кнопка "Вставити" ===
+    oButtonInsert    = oDialog.getControl("InsertButton")
+    ' === Обробник кнопки oButtonInsert ===
     oListenerInsert = CreateUnoListener("InsertButton_", "com.sun.star.awt.XActionListener")
     oButtonInsert.addActionListener(oListenerInsert)
     oButtonInsert.Model.Tag = sAction
-        
-	' === Підключення слухача до OffsetField ===
-	AddTextFieldsOffsetListener(oDialog)
+    
+    ' === Кнопка "Заповнити" по Id персональні дані ===
+    oButtonDataById  = oDialog.getControl("DataByIdButton")
+    ' === Обробник кнопки oButtonInsert ===
+    oListenerDataById = CreateUnoListener("DataByIdButton_", "com.sun.star.awt.XActionListener")
+    oButtonDataById.addActionListener(oListenerDataById)
+    
 
     ' === Змінна результату ===
     sResult = "Cancel"   
 
     ' === Запуск діалогу ===
-    If oDialog.execute() = 1 Then
-        ' Натиснута кнопка (будь-яка) — тут можна перевіряти логіку
+    If oDialog.execute() = 1 Then    
+        ' Натиснута кнопка (будь-яка) — тут можна перевіряти логіку            
         sResult = "OK"
     End If
     
@@ -53,10 +66,15 @@ Function ShowForm(sAction As String) As String
 
     ' === Очищення ===
     oButtonInsert.removeActionListener(oListenerInsert)
+    oButtonDataById.removeActionListener(oListenerDataById)
     oDialog.dispose()
 
-    ShowForm = sResult
-End Function
+    ' ShowForm = sResult
+End Sub
+
+Sub DataByIdButton_actionPerformed(oEvent As Object)
+    PersonalDataById oEvent
+End Sub
 
 ' =====================================================
 ' === Процедура InsertButton_actionPerformed ==========
@@ -69,11 +87,13 @@ Sub InsertButton_actionPerformed(oEvent As Object)
     Dim oSel    As Object
     Dim oDialog As Object
     Dim sAction As String
+    
     sAction = oEvent.Source.Model.Tag
-    oDoc = ThisComponent
-    oSel = oDoc.CurrentSelection
+    oDoc    = ThisComponent
+    oSel    = oDoc.CurrentSelection
     oDialog = oEvent.Source.getContext()
-
+    
+    If Not CheckInDateValidation(oDialog) Then Exit Sub
     If Not CheckOccupiedPlace(oDialog, sAction) Then Exit Sub
     If Not OffsetReasonValidation(oSel, oDialog) Then Exit Sub
     If Not FinanceAreNumbersValidation(oDialog, "ExpenseField;IncomeField") Then Exit Sub
@@ -98,8 +118,9 @@ Sub InsertButton_actionPerformed(oEvent As Object)
     FinanceInsertion(oSel, oDialog)         ' G, H, I   видаток, прихід, коментар
     PhoneInsertion(oSel, oDialog)           ' J         телефон
     PassportBirthInsertion(oSel, oDialog)   ' K, L      паспортні дані, дата народження
-    HostelInsertion(oSel , oDialog)         ' N         хостел
+    HostelInsertion(oSel)                   ' N         хостел
     PlaceInsertion(oSel, oDialog)           ' R         місце
+    AdminInsertion(oSel, sAction)
     		
     FormResult = True   ' Ставимо True тільки якщо валідація пройшла та вставка відпрацювала коректно 
            
@@ -114,26 +135,63 @@ End Sub
 Sub InsertButton_disposing(oEvent As Object)
 End Sub
 
+Function CheckInDateValidation(oDialog As Object) As Boolean
+    Dim oD    As Object
+    Dim d     As String
+    Dim sDate As String
+    
+    oD = oDialog.getControl("CheckInDate").Date
+
+    ' Якщо вставили у календарі "Немає" порожнє поле
+    oD = IniUtilDate(oD)
+    
+    d  = DateSerial(oD.Year, oD.Month, oD.Day)
+
+    If Not DateFormatValidation(d) Then
+        MsgDlg "Формат дати заселення не валідний", " !!!!Подання має бути в такому вигляді: dd.mm.yyyy", False, 50, 165           
+        CheckInDateValidation = False
+        Exit Function
+    End If
+    CheckInDateValidation = True
+End Function
+
 ' =====================================================
 ' === Функція OffsetReasonValidation ==================
 ' =====================================================
 ' → Перевіряє, що якщо Offset ≠ 0, то заповнено поле Reason.
 ' → Повертає True — якщо умова виконана, False — якщо ні.
-Function OffsetReasonValidation(oSel As Object, oDialog As Object) As Boolean
+Function OffsetReasonValidation(oSel As Object, _
+                             oDialog As Object) As Boolean
+                            
     ' ==== Читаємо значення полів ====
-    Dim sOffset As String
-    Dim sReason As String
+    Dim sReason      As String
+    Dim cD           As String
+    Dim sDateOnly    As Date
+    Dim d            As Object
+    Dim bCheckOffset As Boolean 
     
-    sOffset = oDialog.getControl("OffsetField").getText()
-    sReason = oDialog.getControl("ReasonField").getText()
-
-    ' ==== Перевірка ====
-    If Val(sOffset) <> 0 And Trim(sReason) = "" Then
+       
+    sReason      = Trim(oDialog.getControl("ReasonField").getText())
+    d            = oDialog.getControl("CheckInDate").Date
+    cD           = oDialog.getControl("CurrentDateLabel").Text
+    sDateOnly    = DateValue(Split(cD, Chr(10))(0))
+       
+    bCheckOffset = DateSerial(d.Year, d.Month, d.Day)  <> sDateOnly
+    
+    ' ==== Перевірка зсуву ====
+    If bCheckOffset And Trim(sReason) = "" Then
         MsgDlg "Увага!", "Поле 'Причина зсуву' не може бути порожнім при ненульовому зсуві!", False, 50, 225
         OffsetReasonValidation = False
         Exit Function
     End If
-
+        
+    ' ==== Перевірка коментаря ====
+    If bCheckOffset And Len(sReason) < 5 Then
+        MsgDlg "Увага!", "Поле 'Причина зсуву' не може бути менше 5 символів!", False, 50, 225
+        OffsetReasonValidation = False
+        Exit Function
+    End If
+    
     ' ==== Успішно ====
     OffsetReasonValidation = True
 End Function
@@ -141,20 +199,15 @@ End Function
 ' =====================================================
 ' === Процедура OffsetReasonInsertion ================
 ' =====================================================
-' → Вставляє значення Offset і Reason у таблицю (стовпці Q та P).
+' → Вставляє значення Reason у таблицю (стовпець P).
 Sub OffsetReasonInsertion(oSel As Object, oDialog As Object)
     Dim oSheet As Object
-    Dim sOffset As String, sReason As String
+    Dim sReason As String
     oSheet = oSel.Spreadsheet
-    sOffset = oDialog.getControl("OffsetField").getText()
+
     sReason = oDialog.getControl("ReasonField").getText()
-    oSheet.getCellByPosition(16, oSel.CellAddress.Row).setValue(Val(sOffset)) ' Q
-    
-    If Val(sOffset) = 0 Then
-        oSheet.getCellByPosition(15, oSel.CellAddress.Row).setString("")      ' P
-        Exit Sub
-    End If
-    oSheet.getCellByPosition(15, oSel.CellAddress.Row).setString(sReason)     ' P
+
+    oSheet.getCellByPosition(15, oSel.CellAddress.Row).setString(Trim(sReason))     ' P
 End Sub
 
 ' =====================================================
@@ -164,8 +217,8 @@ End Sub
 ' → Форматує дати у вигляді "DD.MM.YYYY" та "DD.MM.YYYY HH:MM".
 Sub DateRangeInsertion(oSel As Object, oDialog As Object)
     Dim nOffset        As Integer
-    Dim dBaseDate      As Double
-    Dim dEndDate       As Double
+    Dim oCheckIn       As Object
+    Dim dCheckOutDate  As Double
     Dim nDuration      As Integer
     Dim oSheet         As Object
     Dim oCursorAddress As Object
@@ -173,48 +226,50 @@ Sub DateRangeInsertion(oSel As Object, oDialog As Object)
     Dim oCheckOutCell  As Object
     Dim oCreatedCell   As Object
     Dim bWasProtected  As Boolean
-      
-    ' ==== Читаємо значення Offset і Duration ====
-    nOffset = Val(oDialog.getControl("OffsetField").getText())
-    nDuration = Val(oDialog.getControl("DurationCombo").getText())
-
+    Dim cI             As Object  
+    ' ==== Читаємо значення Duration ====
+    nDuration      = Val(oDialog.getControl("DurationCombo").getText())
     ' ==== Отримуємо таблицю і адресу ====
-    oSheet = oSel.Spreadsheet
+    oSheet         = oSel.Spreadsheet
     oCursorAddress = oSel.CellAddress
-
     ' ==== Обчислення базової і кінцевої дати ====
-    dBaseDate = CDate(oDialog.getControl("CurrentDateField").getText())
-    dBaseDate = dBaseDate + nOffset
-    dEndDate = dBaseDate + nDuration
-
+    
+    oCheckIn       = oDialog.getControl("CheckInDate")
+    dCheckOutDate  = Cdate(oDialog.getControl("CheckOutField").getText())
+    cI             = oCheckIn.Date
+    ' Якщо застосували у календар кнопку "Немає" порожнє поле
+    cI = IniUtilDate(cI)
+    
     ' ==== Вставка дати заселення в колонку A ====
-    oCheckInCell = oSheet.getCellByPosition(0, oCursorAddress.Row)              ' A
-    oCheckInCell.setValue(Cdate(Format(dBaseDate, "DD.MM.YYYY")))
-
+    oCheckInCell   = oSheet.getCellByPosition(0, oCursorAddress.Row)
+    oCheckInCell.setValue(DateSerial(cI.Year, cI.Month, cI.Day))                  ' A
+      
     ' ==== Вставка дати виселення в колонку E ====
-    oCheckOutCell = oSheet.getCellByPosition(4, oCursorAddress.Row)             ' E
-    oCheckOutCell.setValue(Cdate(Format(dEndDate, "DD.MM.YYYY")))
+    oCheckOutCell  = oSheet.getCellByPosition(4, oCursorAddress.Row)
+    oCheckOutCell.setValue(Cdate(Format(dCheckOutDate, "DD.MM.YYYY")))            ' E
 
     ' ==== Вставка дати створення з часом в колонку O ====
-    oCreatedCell = oSheet.getCellByPosition(14, oCursorAddress.Row)             ' O
-    oCreatedCell.setValue(Cdate(Format(Now, "DD.MM.YYYY HH:MM:SS")))
+    oCreatedCell   = oSheet.getCellByPosition(14, oCursorAddress.Row)
+    oCreatedCell.setValue(Now)                                                    ' O
  
     ' ==== Вставка терміна в колонку Т ====
-    oSheet.getCellByPosition(19, oSel.CellAddress.Row).setValue(Val(nDuration)) ' Т
+    oSheet.getCellByPosition(3, oSel.CellAddress.Row).setValue(Val(nDuration))    ' D
     
     ' ==== Вставка id у колонку U ====
-    SetNextId(oSheet, oSel)                                                     ' U
+    SetNextId(oSheet, oSel)                                                       ' U
     
     ' ==== Якщо є зсув — застосовуємо стиль "створено" ====
     bWasProtected = oSheet.IsProtected
     
     ' ==== Якщо захищений — знімаємо захист ====
-    If bWasProtected Then oSheet.unprotect(NEGET_RULES)
+    If bWasProtected Then oSheet.unprotect(Deobfuscate(NEGET_RULES))
     
-    If nOffset <> 0 Then oCreatedCell.CellStyle = "створено" Else: oCreatedCell.CellStyle = "Типовий"
+    If DateSerial(cI.Year, cI.Month, cI.Day) <> Int(Now) Then 
+        oCreatedCell.CellStyle = "створено" Else: oCreatedCell.CellStyle = "Типовий"
+    End If
     
     ' ==== Повертаємо захист назад ====
-    If bWasProtected Then oSheet.protect(NEGET_RULES)
+    If bWasProtected Then oSheet.protect(Deobfuscate(NEGET_RULES))
 End Sub
 
 ' =====================================================
@@ -429,7 +484,9 @@ End Function
 ' === Процедура PhoneInsertion ========================
 ' =====================================================
 ' → Вставляє номер телефону у таблицю (стовпець J).
-Sub PhoneInsertion(oSel As Object, oDialog As Object)
+Sub PhoneInsertion(oSel    As Object, _
+                   oDialog As Object)
+                   
     Dim oSheet As Object
     Dim sPhone As String
     oSheet = oSel.Spreadsheet
@@ -506,11 +563,19 @@ End Sub
 ' → Перевіряє правильність формату дати народження.
 ' → Якщо не валідно — показує діалог із підказкою.
 Function BirthDateValidation(oDialog As Object) As Boolean
-    If Not DateFormatValidation(oDialog.getControl("BirthDateField").getText()) Then
-        MsgDlg "Формат дати народження не валідний", "Подання має бути в такому вигляді: dd.mm.yyyy", False, 50, 165           
+    Dim cI         As Object 
+    Dim sBirthDate As String
+    
+    cI = oDialog.getControl("BirthDate").Date
+    sBirthDate = DateSerial(cI.Year, cI.Month, cI.Day)
+    
+    If Not DateFormatValidation(sBirthDate) Then
+        MsgDlg "Формат дати народження не валідний", _
+            "Подання має бути в такому вигляді: dd.mm.yyyy", False, 50, 165           
         BirthDateValidation = False
         Exit Function
     End If
+    
     BirthDateValidation = True
 End Function
 
@@ -543,36 +608,25 @@ End Function
 Sub PassportBirthInsertion(oSel As Object, oDialog As Object)
     Dim oSheet       As Object  
     Dim sPassport    As String
+    Dim cI           As Object
     Dim sBirthDate   As String
-    Dim dBirthDate   As Date
-    Dim oFormats     As Object, oLocale As New com.sun.star.lang.Locale
+    Dim oFormats     As Object
+    Dim oLocale      As New com.sun.star.lang.Locale
     Dim nFormatDate  As Long
 
     ' === Отримуємо дані з форми ===
-    oSheet = oSel.Spreadsheet 
-    sPassport = oDialog.getControl("PassportField").getText()
-    sBirthDate = oDialog.getControl("BirthDateField").getText()   
-
+    oSheet     = oSel.Spreadsheet 
+    sPassport  = oDialog.getControl("PassportField").getText()
+    cI         = oDialog.getControl("BirthDate").Date
+    sBirthDate = DateSerial(cI.Year, cI.Month, cI.Day)
+    
     ' === Записуємо паспорт як текст ===
     oSheet.getCellByPosition(10, oSel.CellAddress.Row).setString(sPassport)  ' K
 
-    ' === Перетворюємо дату народження у формат Date ===
-    dBirthDate = CDate(sBirthDate)
+    ' === Записуємо дату народження===
 
-    ' === Встановлюємо формат дати ===
-    oFormats = ThisComponent.getNumberFormats()
-    oLocale.Language = "uk"
-    oLocale.Country = "UA"
-
-    nFormatDate = oFormats.queryKey("DD.MM.YYYY", oLocale, True)
-    If nFormatDate = -1 Then
-        nFormatDate = oFormats.addNew("DD.MM.YYYY", oLocale)
-    End If
-
-    ' === Записуємо дату народження як значення + формат ===
     With oSheet.getCellByPosition(11, oSel.CellAddress.Row)                  ' L
-        .setValue(dBirthDate)
-        .NumberFormat = nFormatDate
+        .setValue(Cdate(sBirthDate))
     End With
 End Sub
 
@@ -580,10 +634,10 @@ End Sub
 ' === Процедура HostelInsertion =======================
 ' =====================================================
 ' → Вставляє значення хостелу у таблицю (стовпець N).
-Sub HostelInsertion(oSel As Object, oDialog As Object)
+Sub HostelInsertion(oSell As Object)
     Dim oSheet As Object
-    oSheet = oSel.Spreadsheet
-    oSheet.getCellByPosition(13, oSel.CellAddress.Row).setString(HOSTEL)     ' N
+    oSheet = oSell.Spreadsheet
+    oSheet.getCellByPosition(13, oSell.CellAddress.Row).setString(HOSTEL)    ' N
 End Sub
 
 ' =====================================================
@@ -595,7 +649,7 @@ Sub CodeInsertion(oSel As Object, oDialog As Object)
     Dim sCode   As String
     oSheet = oSel.Spreadsheet 
     sCode = oDialog.getControl("CodeCombo").getText()
-    oSheet.getCellByPosition(3, oSel.CellAddress.Row).setValue(Val(sCode))   ' D
+    oSheet.getCellByPosition(18, oSel.CellAddress.Row).setValue(Val(sCode))  ' S
 End Sub
 
 ' =====================================================
@@ -607,7 +661,18 @@ Sub PlaceInsertion(oSel As Object, oDialog As Object)
     Dim sPlace  As String     
     oSheet = oSel.Spreadsheet  
     sPlace = oDialog.getControl("PlaceCombo").getText()
-    oSheet.getCellByPosition(17, oSel.CellAddress.Row).setValue(Val(sPlace)) ' R
+    oSheet.getCellByPosition(16, oSel.CellAddress.Row).setValue(Val(sPlace)) ' R
+End Sub
+
+Sub AdminInsertion(oSel As Object, sAction As String)
+    Dim oDoc         As Object : oDoc         = ThisComponent
+    Dim oSheetData   As Object : oSheetData   = oDoc.Sheets.getByName("data")
+    Dim oSheetAdmins As Object : oSheetAdmins = oDoc.Sheets.getByName("admins")
+    Dim sAdmin       As String : sAdmin       = oSheetAdmins.getCellByPosition(3, 0).String
+    
+    If sAction = ACTION_CREATE Then
+        oSheetData.getCellByPosition(20, oSel.CellAddress.Row).SetString(sAdmin) ' admins D1          ' U
+    End If
 End Sub
 
 ' =====================================================
@@ -618,7 +683,7 @@ End Sub
 Function CreateDialog(sAction As String) As Object
     Dim oDialog        As Object
     Dim oDialogModel   As Object
-    Dim mInitialValues As Variant
+    Dim mV             As Variant
     Dim sTitle         As String
     
     If sAction = ACTION_CREATE Then 
@@ -630,65 +695,109 @@ Function CreateDialog(sAction As String) As Object
     oDialog = CreateUnoService("com.sun.star.awt.UnoControlDialog")
     oDialogModel = CreateUnoService("com.sun.star.awt.UnoControlDialogModel")  
     oDialog.setModel(oDialogModel)
-    
-    mInitialValues = FormInitialization(sAction)
+    mV = FormInitialization(sAction)
     
     ' ==== Параметри діалогу ====    
     With oDialogModel
         .PositionX = 100
         .PositionY = 100
-        .Width = 350
-        .Height = 250
+        .Width = 340
+        .Height = 270
         .Title = sTitle
-    End With
+    End With ' 
     
-    AddLogo (oDialogModel ,"logo", 290, 5, 50, 45)
-     
-    ' ==== Поточна дата і час ====
-    FieldTemplate(oDialogModel, "CurrentDate", "Поточні дата і час:", 10, 15, MapGet(mInitialValues, "створено"), 65, 65, True)
-    ' ==== Зсув у днях ====
-    FieldTemplate(oDialogModel, "Offset", "Зсув у днях:", 10, 45, MapGet(mInitialValues, "зсув"), 50, 50)
-    ' ==== Кількість днів ====
-    ComboBoxTemplate(oDialogModel, "Duration", "Кількість днів:", 65, 45, MapGet(mInitialValues, "тривалість"), 50, 50, VALID_DURATIONS)
-    AddDurationComboListeners(oDialog)
-    ' ==== Причини зсуву ====
-    FieldTemplate(oDialogModel, "Reason", "Причина зсуву:", 120, 45, MapGet(mInitialValues, "причина зсуву"), 50, 165)
-    ' ==== Поля визначення ====
-    ComboBoxTemplate(oDialogModel, "Code", "Код:", 10, 75, MapGet(mInitialValues, "код"), 50, 50, LIST_OF_CODES)
-    AddCodeComboListeners(oDialog)
-    ComboBoxTemplate(oDialogModel, "Place", "Місце:", 65, 75, MapGet(mInitialValues, "місце"), 50, 50, LIST_OF_PLACES)
-    AddPlaceComboListeners(oDialog)
-    ' ==== Фінансові поля ====
-    FieldTemplate(oDialogModel, "Paid", "Сплачено:", 120, 75, MapGet(mInitialValues, "сплачено"), 50, 50, True)
-    FieldTemplate(oDialogModel, "Expense", "Видаток:", 235, 75, MapGet(mInitialValues, "видаток"), 50, 50)
-    FieldTemplate(oDialogModel, "Income", "Прихід:", 290, 75, MapGet(mInitialValues, "прихід"), 50, 50)
-    ' ==== Інші дані ====
-    FieldTemplate(oDialogModel, "Comment", "Коментар:", 10, 105, MapGet(mInitialValues, "коментар"), 70, 330)
-    ' ==== Персональні дані ====
-    FieldTemplate(oDialogModel, "LastName", "Прізвище:", 10, 135, MapGet(mInitialValues, "прізвище"), 70, 100)
-    FieldTemplate(oDialogModel, "FirstName", "Ім'я:", 125, 135, MapGet(mInitialValues, "ім’я"), 70, 100)
-    FieldTemplate(oDialogModel, "Patronymic", "По батькові:", 240, 135, MapGet(mInitialValues, "по батькові"), 70, 100)
-    ' ==== Контактна інформація ====
-    FieldTemplate(oDialogModel, "Phone", "Телефон:", 10, 165, MapGet(mInitialValues, "телефон"), 70, 100)
-    FieldTemplate(oDialogModel, "BirthDate", "Дата народження:", 125, 165, MapGet(mInitialValues, "дата народження"), 100, 100)
-    ' ==== Документ ====
-    FieldTemplate(oDialogModel, "Passport", "Паспортні дані:", 10, 195, MapGet(mInitialValues, "паспортні дані"), 100, 330)
+    AddBackground(oDialogModel, BACKGROUND)
     
+    ' ==== Групова рамка ====
+    Dim gX As Long, gY As Long, fY As Long, pY As Long
+    gX = 5 : gY = 5 : fY = gY + 70 : pY = fY + 70 
+    '                                                                           X        Y    W     H                      WL   WF
+    
+    AddGroupBox(oDialogModel,      "GroupDate",                                gX,      gY, 255,   70, "Дата")
+    AddLogo (oDialogModel ,        "logo",                               gx + 259, gY +  4,  71, 65.5)
+    AddLabelFont(oDialogModel,     "CurrentDate",                        gx +   5, gY + 20,  50,   15, MapGet(mV, "створено"))                                                                      
+    AddLabel(oDialogModel,         "CheckInDate", "Заселення:",          gx +  60, gY + 10,  50,   10)   
+    AddDateField(oDialogModel,     "CheckIn",                            gx +  60, gY + 20,  50,   15, MapGet(mV, "заселення"))
+    ComboBoxTemplate(oDialogModel, "Duration",    "Термін:",             gx + 115, gY + 20, MapGet(mV, "термін"),          50,  50, VALID_DURATIONS)
+    FieldTemplate(oDialogModel,    "CheckOut",    "Виселення:",          gx + 170, gY + 20, MapGet(mV, "виселення"),       50,  50, True)
+    FieldTemplate(oDialogModel,    "Reason",      "Причина зсуву дати:", gx +   5, gY + 50, MapGet(mV, "причина зсуву"),   70, 245)
+    ' MsgBox "GroupDate"
+    AddGroupBox(oDialogModel,      "GroupBalance",                             gX,      fY, 330,   70, "Баланс")
+    ComboBoxTemplate(oDialogModel, "Code",        "Код:",                gx +   5, fY + 20, MapGet(mV, "код"),             50,  50, LIST_OF_CODES)
+    ComboBoxTemplate(oDialogModel, "Place",       "Місце:",              gx +  60, fY + 20, MapGet(mV, "місце"),           50,  50, "")
+    FieldTemplate(oDialogModel,    "Paid",        "Сплачено:",           gx + 115, fY + 20, MapGet(mV, "сплачено"),        50,  50, True)
+    FieldTemplate(oDialogModel,    "Expense",     "Видаток:",            gx + 220, fY + 20, MapGet(mV, "видаток"),         50,  50)
+    FieldTemplate(oDialogModel,    "Income",      "Прихід:",             gx + 275, fY + 20, MapGet(mV, "прихід"),          50,  50)
+    FieldTemplate(oDialogModel,    "Comment",     "Коментар:",           gx +   5, fY + 50, MapGet(mV, "коментар"),        70, 320)
+    ' MsgBox "GroupBalance"
+    AddGroupBox(oDialogModel,      "GroupPersonal",                            gX,      pY, 330,  100, "Персональні дані")    
+    FieldTemplate(oDialogModel,    "LastName",    "Прізвище:",           gx +   5, pY + 20, MapGet(mV, "прізвище"),        70, 100)
+    FieldTemplate(oDialogModel,    "FirstName",   "Ім'я:",               gx + 115, pY + 20, MapGet(mV, "ім’я"),            70, 100)
+    FieldTemplate(oDialogModel,    "Patronymic",  "По батькові:",        gx + 225, pY + 20, MapGet(mV, "по батькові"),     70, 100)
+    FieldTemplate(oDialogModel,    "Phone",       "Телефон:",            gx +   5, pY + 50, MapGet(mV, "телефон"),         70, 100)  
+    AddLabel(oDialogModel,         "BirthDate",   "Дата нар. :",         gx + 115, pY + 40,  50,   10,)
+    AddDateField(oDialogModel,     "Birth",                              gx + 115, pY + 50,  50,   15, MapGet(mV, "дата народження"))
+    ' MsgBox "GroupPersonal"    
+    AddGroupBox(oDialogModel,      "GroupById",                          gX + 225, pY + 40, 100,   30, "Заповнити по Id")
+    FieldTemplate(oDialogModel,    "Id",                         "",     gx + 233, pY + 50, ""                   ,          0,  40)
+    FieldTemplate(oDialogModel,    "Passport",    "Паспортні дані:",     gx +   5, pY + 80, MapGet(mV, "паспортні дані"), 100, 320)
+    ' MsgBox "GroupById"
     CalculatePaidFieldWithPlace(oDialog)
-    
+
     If sAction = ACTION_CREATE Then
         UpdatePlaceCombo(oDialog, ACTION_CREATE)
     ElseIf sAction = ACTION_EDIT Then
-        UpdatePlaceCombo(oDialog, ACTION_EDIT, MapGet(mInitialValues, "місце"))
+        UpdatePlaceCombo(oDialog, ACTION_EDIT, MapGet(mV, "місце"))
     End If 
       
     ' ==== Кнопка вставки ====    
-    AddButton(oDialogModel, "InsertButton", ChoiceButtonName(sAction), 150, 225, 60, 14)
+    AddButton(oDialogModel, "InsertButton", ChoiceButtonName(sAction), 140, 250, 60, 14)
     
-    oDialog.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null) 
+    ' === Кнопка "Заповнити" по Id персональні дані ===
+    AddButton(oDialogModel, "DataByIdButton", "Заповнити", gx + 278, pY + 50, 40, 14)
+    
+    oDialog.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
+    
+    SetFocus(oDialog, "CheckInDate")
+ 
     ' ==== Повертаємо ====
     CreateDialog = oDialog
 End Function
+
+' =====================================================
+' === Процедура AddBackground =========================
+' =====================================================
+' → Додає фон у вигляді зображення на весь діалог.
+' → Параметри:
+'   — oDialogModel: модель діалогу
+'   — sImgUrl: шлях (URL) до зображення
+' → Розтягує картинку на всю ширину та висоту діалогу.
+Sub AddBackground(oDialogModel As Object, sImgUrl As String)
+    Dim oImg         As Object
+    oImg = oDialogModel.createInstance("com.sun.star.awt.UnoControlImageControlModel")
+    oImg.Name = "Background"
+    oImg.PositionX = 0
+    oImg.PositionY = 0
+    oImg.Width = oDialogModel.Width
+    oImg.Height = oDialogModel.Height
+    oImg.ImageURL = sImgUrl 
+    oImg.TabIndex = 0
+    oDialogModel.insertByName(oImg.Name, oImg)
+End Sub
+
+' =====================================================
+' === Процедура SetFocus ==============================
+' =====================================================
+' → Встановлює фокус на вказаний елемент діалогу.
+' → Параметри:
+'   — oDialog: діалог
+'   — sField: ім’я елемента керування
+' → Використовується для зручності навігації між полями.
+Sub SetFocus(oDialog As Object, sField As String)
+    Dim oCtrl As Object
+    oCtrl = oDialog.getControl(sField)
+    oCtrl.setFocus()
+End Sub
 
 ' =====================================================
 ' === Функція FormInitialization ======================
@@ -698,99 +807,100 @@ End Function
 ' → Якщо `EDIT` — зчитує існуючі дані з таблиці й обчислює зсув, тривалість тощо.
 ' → Повертає Map зі всіма полями для заповнення форми.
 Function FormInitialization(sAction As String) As Variant
-    Dim data      As Variant
-    Dim Fields    As Variant
-    Dim sPrice    As String   ' ціна з аркуша
-    Dim sDateTime As String   ' поточна дата і час
-    Dim sOffset   As String   ' зсув
-    Dim sDuration As String   ' тривалість
-    Dim sReason   As String   ' причина зсуву
-    Dim sCode     As String   ' код
-    Dim sPlace    As String   ' місце
-    Dim sPaid     As String   ' сплачено
-    Dim sExpense  As String   ' видаток
-    Dim sIncome   As String   ' прихід
-    Dim sComment  As String   ' коментар
-    Dim sLast     As String   ' прізвище
-    Dim sFirst    As String   ' ім’я
-    Dim sPatr     As String   ' по батькові
-    Dim sPhone    As String   ' телефон
-    Dim sBirth    As String   ' дата народження
-    Dim sPass     As String   ' паспортні дані
+    Dim dM           As Variant
+    Dim fR           As Variant
+    Dim sPrice       As String   ' ціна з аркуша
+    Dim sCurrentDate As String   ' поточна дата і час
+    Dim dCheckIn     As Date     ' заселення
+    Dim dCheckOut    As Date     ' виселення
+    Dim sDuration    As String   ' тривалість
+    Dim sReason      As String   ' причина зсуву
+    Dim sCode        As String   ' код
+    Dim sPlace       As String   ' місце
+    Dim sPaid        As String   ' сплачено
+    Dim sExpense     As String   ' видаток
+    Dim sIncome      As String   ' прихід
+    Dim sComment     As String   ' коментар
+    Dim sLast        As String   ' прізвище
+    Dim sFirst       As String   ' ім’я
+    Dim sPatr        As String   ' по батькові
+    Dim sPhone       As String   ' телефон
+    Dim sBirth       As String   ' дата народження
+    Dim sPass        As String   ' паспортні дані
 
-    data = CreateMap()
+    dM = CreateMap()
         
     sPrice = ThisComponent.Sheets.getByName("price1").getCellByPosition(1, 1).getValue()
 
     If sAction = ACTION_CREATE Then
-        sDateTime = Format(Now, "DD.MM.YYYY HH:MM")
-        sOffset = "0"
-        sDuration = "1"
-        sReason = ""
-        sCode = "1"
-        sPlace = "1"
-        sPaid = sPrice
-        sExpense = "0"
-        sIncome = "0"
-        sComment = ""
-        sLast = ""
-        sFirst = ""
-        sPatr = "_"
-        sPhone = ""
-        sBirth = ""
-        sPass = ""
+        sCurrentDate = DateValue(Now) & Chr(10) & String(5, " ") & Format(Now, "HH:MM")
+        sOffset      = "0"
+        dCheckIn     = Date
+        dCheckOut    = DateAdd("d", 1, dCheckIn)
+        sDuration    = "1"
+        sReason      = ""
+        sCode        = "1"
+        sPlace       = "1"
+        sPaid        = sPrice
+        sExpense     = "0"
+        sIncome      = "0"
+        sComment     = ""
+        sLast        = ""
+        sFirst       = ""
+        sPatr        = "_"
+        sPhone       = ""
+        sBirth       = DateSerial(1999, 6, 15)
+        sPass        = ""
 
     ElseIf sAction = ACTION_EDIT Then 
-        Fields = ReadFromTable()
-        sDateTime = Format(CDate(MapGet(Fields, "заселення")) - Val(MapGet(Fields, "зсув")), "DD.MM.YYYY")
-        sOffset = MapGet(Fields, "зсув")
-
-        ' обчислюємо тривалість
-        Dim dCheckIn As Date, dCheckOut As Date, nDuration As Long
-        dCheckIn = CDate(MapGet(Fields, "заселення"))
-        dCheckOut = CDate(MapGet(Fields, "виселення"))
-        nDuration = DateDiff("d", dCheckIn, dCheckOut)
-        sDuration = CStr(nDuration)
-
-        sReason = MapGet(Fields, "причина зсуву")
-        sCode = MapGet(Fields, "код")
-        sPlace = MapGet(Fields, "місце")
-        sPaid = MapGet(Fields, "сплачено")
-        sExpense = MapGet(Fields, "видаток")
-        sIncome = MapGet(Fields, "прихід")
-        sComment = MapGet(Fields, "коментар")
-        sLast = MapGet(Fields, "прізвище")
+        fR           = ReadFromTable()
+        sCurrentDate = Format(CDate(MapGet(fR, "створено")), "DD.MM.YYYY HH:MM")
+        
+        dCheckIn     = CDate(MapGet(fR, "заселення"))
+        dCheckOut    = CDate(MapGet(fR, "виселення"))
+        nDuration    = DateDiff("d", dCheckIn, dCheckOut)
+        sDuration    = CStr(nDuration)
+        
+        sReason      = MapGet(fR, "причина зсуву")
+        sCode        = MapGet(fR, "код")
+        sPlace       = MapGet(fR, "місце")
+        sPaid        = MapGet(fR, "сплачено")
+        sExpense     = MapGet(fR, "видаток")
+        sIncome      = MapGet(fR, "прихід")
+        sComment     = MapGet(fR, "коментар")
+        sLast        = MapGet(fR, "прізвище")
 
         ' Ділемо ім’я та по батькові
         Dim aNameParts As Variant
-        aNameParts = Split(MapGet(Fields, "ім'я по батькові"), " ")
+        aNameParts = Split(MapGet(fR, "ім'я по батькові"), " ")
         If UBound(aNameParts) >= 0 Then sFirst = aNameParts(0)
         If UBound(aNameParts) >= 1 Then sPatr = aNameParts(1) Else sPatr = ""
 
-        sPhone = MapGet(Fields, "телефон")
-        sBirth = MapGet(Fields, "дата народження")
-        sPass = MapGet(Fields, "паспортні дані")
+        sPhone       = MapGet(fR, "телефон")
+        sBirth       = MapGet(fR, "дата народження")
+        sPass        = MapGet(fR, "паспортні дані")
     End If
 
     ' === записуємо в Map ===
-    MapPut data, "створено", sDateTime
-    MapPut data, "зсув", sOffset
-    MapPut data, "тривалість", sDuration
-    MapPut data, "причина зсуву", sReason
-    MapPut data, "код", sCode
-    MapPut data, "місце", sPlace
-    MapPut data, "сплачено", sPaid
-    MapPut data, "видаток", sExpense
-    MapPut data, "прихід", sIncome
-    MapPut data, "коментар", sComment
-    MapPut data, "прізвище", sLast
-    MapPut data, "ім’я", sFirst
-    MapPut data, "по батькові", sPatr
-    MapPut data, "телефон", sPhone
-    MapPut data, "дата народження", sBirth
-    MapPut data, "паспортні дані", sPass
+    MapPut dM, "створено",        sCurrentDate
+    MapPut dM, "причина зсуву",   sReason
+    MapPut dM, "термін",          sDuration
+    MapPut dM, "заселення",       dCheckIn
+    MapPut dM, "виселення",       dCheckOut
+    MapPut dM, "код",             sCode
+    MapPut dM, "місце",           sPlace
+    MapPut dM, "сплачено",        sPaid
+    MapPut dM, "видаток",         sExpense
+    MapPut dM, "прихід",          sIncome
+    MapPut dM, "коментар",        sComment
+    MapPut dM, "прізвище",        sLast
+    MapPut dM, "ім’я",            sFirst
+    MapPut dM, "по батькові",     sPatr
+    MapPut dM, "телефон",         sPhone
+    MapPut dM, "дата народження", sBirth
+    MapPut dM, "паспортні дані",  sPass
 
-    FormInitialization = data
+    FormInitialization = dM
 End Function
 
 ' =====================================================

@@ -22,7 +22,7 @@ Sub PeopleTodayFilter()
     ' MsgBox oRange.RangeAddress.StartRow & " → " & oRange.RangeAddress.EndRow
 
     ' ==== Створення дескриптора фільтру ====
-    Set oFilterDesc = oRange.createFilterDescriptor(True)
+    oFilterDesc = oRange.createFilterDescriptor(True)
 
     ' ==== Оголошення фільтруючих полів (3 умови) ====
     Dim oFilterFields(2) As New com.sun.star.sheet.TableFilterField
@@ -45,15 +45,15 @@ Sub PeopleTodayFilter()
     
     ' ==== Третя умова: D <> 7 (фільтруємо особливий статус) ====
 	With oFilterFields(2)
-    	.Field = 3 ' Колонка D
+    	.Field = 18 ' Колонка S код
     	.Operator = com.sun.star.sheet.FilterOperator.NOT_EQUAL ' Не дорівнює
     	.IsNumeric = True
     	.NumericValue = 7
 	End With
 	
-	' ==== Четверта умова: M пусто ====
+	' ==== Четверта умова: S код пусто ====
     'With oFilterFields(3)
-        '.Field = 3 ' Колонка M
+        '.Field = 18 ' Колонка S код
         '.Operator = com.sun.star.sheet.FilterOperator.NOT_EQUAL
     	'.IsNumeric = True
     	'.NumericValue = 28
@@ -159,8 +159,8 @@ Function CountVisibleRows(oRange As Object) As Variant
 
     ' ==== Ініціалізація лічильників ====
     iVisibleCount = 0
-    iTermExpired = 0
-    iBlacklisted = 0
+    iTermExpired  = 0
+    iBlacklisted  = 0
 
     ' ==== Межі діапазону ==== 
     iStartRow = oRange.RangeAddress.StartRow
@@ -173,19 +173,19 @@ Function CountVisibleRows(oRange As Object) As Variant
             iVisibleCount = iVisibleCount + 1
             
             ' ==== Чи виселення сьогодні ====		
-            Set oCellOut = oSheet.getCellByPosition(4, iRow)                        ' CheckOut (E) 
+            Set oCellOut = oSheet.getCellByPosition(4, iRow)                    ' CheckOut (E) 
             If Int(oCellOut.getValue()) = dToday Then
-                Set oCellSurname = oSheet.getCellByPosition(1, iRow)                ' (B) 
-                Set oNameAndPatronymic = oSheet.getCellByPosition(2, iRow)          ' (C)
+                oCellSurname = oSheet.getCellByPosition(1, iRow)                ' (B) 
+                oNameAndPatronymic = oSheet.getCellByPosition(2, iRow)          ' (C)
                 ReDim Preserve aPeopleForEviction(iTermExpired)    
                 aPeopleForEviction(iTermExpired) = oCellSurname.getString() & " " & oNameAndPatronymic.getString()
                 iTermExpired = iTermExpired + 1
             End If
         
             ' ==== Чи у чорному списку ====           
-            If oSheet.getCellByPosition(3, iRow).getValue = 28 Then
-                Set oCellSurname = oSheet.getCellByPosition(1, iRow)                ' (B)
-                Set oNameAndPatronymic = oSheet.getCellByPosition(2, iRow)          ' (C)
+            If oSheet.getCellByPosition(18, iRow).getValue = 28 Then
+                oCellSurname = oSheet.getCellByPosition(1, iRow)                ' (B)
+                oNameAndPatronymic = oSheet.getCellByPosition(2, iRow)          ' (C)
                 ReDim Preserve aPeopleFromBlackList(iBlacklisted)   
                 aPeopleFromBlackList(iBlacklisted) = oCellSurname.getString() & " " & oNameAndPatronymic.getString()         
                 iBlacklisted = iBlacklisted + 1
@@ -207,10 +207,10 @@ Sub ResetFilter(SetCursor As Boolean)
     Dim oFilterDesc As Object
 
     ' ==== Отримання діапазону ====   
-    Set oRange = GetRecordsRange()
+    oRange = GetRecordsRange()
 
     ' ==== Створення дескриптора фільтру ====  
-    Set oFilterDesc = oRange.createFilterDescriptor(True)
+    oFilterDesc = oRange.createFilterDescriptor(True)
     
     ' ==== Скидання фільтру ==== 
     oFilterDesc.FilterFields = Array()
@@ -222,15 +222,40 @@ Sub ResetFilter(SetCursor As Boolean)
     End If
 End Sub
 
-' =====================================================
-' === Процедура ResetFilter ===========================
-' =====================================================
-' → Скидає всі фільтри на діапазоні людей.
-' → Видаляє умови фільтрації та ставить курсор на першу пусту клітинку в колонці A.
-' → Використовується для прив'язування до кнопки з параметром позиціонування курсору.
-Sub ResetPeopleTodayFilter()
-    ResetFilter(True)
+Sub ResetFilterAdmin(True)
+    If Not ShowNegetDialog(NEGET_RULES) Then
+        MsgDlg "Помилка", String(18, " ") & "Операцію скасовано.", False, 50, 130
+        Exit Sub
+    End If
+    
+    ResetFilter(SetCursor)  
 End Sub
+
+Sub ResetFilterlimited()
+    ResetFilter(True)
+    LimitScroll()
+End Sub
+
+Sub LimitScroll()
+    Dim oDoc     As Object : odoc     = ThisComponent
+    Dim oSheet   As Object : oSheet   = oDoc.Sheets.getByName("data")
+    Dim nLastRow As Long   : nLastRow = FindLastRow
+    Dim oRange   As Object
+
+    If nLastRow < VISIBLE_ROWS Then Exit Sub
+    
+    oRange = oSheet.getCellRangeByPosition(0, 3, 0, nLastRow - VISIBLE_ROWS)
+    oRange.Rows.IsVisible = False
+End Sub
+
+Function FindLastRow() As Long
+    Dim oSheet  As Object : oSheet = ThisComponent.Sheets.getByName("Data")
+    Dim oCursor As Object : oCursor = oSheet.createCursor()
+    oCursor.gotoEndOfUsedArea(True)
+    Dim lastRow As Long : lastRow = oCursor.RangeAddress.EndRow
+
+    FindLastRow = lastRow
+End Function
 
 ' =====================================================
 ' === Функція GetPeopleRange ==========================
@@ -244,7 +269,7 @@ Function GetRecordsRange As Object
     Dim iLastRow As Long
 
     ' ==== Отримання документа і активного аркуша ====   
-    oDoc = ThisComponent
+    oDoc   = ThisComponent
     oSheet = oDoc.CurrentController.ActiveSheet
 
     ' ==== Пошук останнього рядка за колонкою A ==== 
@@ -258,14 +283,14 @@ Function GetRecordsRange As Object
     ' ==== Якщо немає жодного заповненого рядка ====
     If iLastRow = 3 Then
         ' Повертаємо діапазон хоча б A4:R4
-        Set oRange = oSheet.getCellRangeByPosition(0, 3, 20, 3)
+        oRange = oSheet.getCellRangeByPosition(0, 3, 20, 3)
     Else
         ' Повертаємо діапазон від A4 до останнього заповненого
-        Set oRange = oSheet.getCellRangeByPosition(0, 3, 20, iLastRow - 1)
+        oRange = oSheet.getCellRangeByPosition(0, 3, 20, iLastRow - 1)
     End If
     
     ' ==== Повертаємо знайдений діапазон ====
-    Set GetRecordsRange = oRange
+    GetRecordsRange = oRange
 End Function
 
 ' =====================================================
@@ -310,5 +335,69 @@ Sub DebugRangeValues()
 
     ' ==== Показуємо результат ====
     MsgDlg "Debug Values", sOut, True
+End Sub
+
+Sub FilterEncashmentAudit()
+    Dim oDoc      As Object : oDoc = ThisComponent
+    Dim oSheet    As Object : oSheet = oDoc.Sheets.getByName("Data")
+    Dim oRange    As Object : oRange = GetRecordsRange() ' Твоя функція отримання діапазону
+    Dim nLastRow  As Long   : nLastRow = oSheet.getRows().getCount()
+    
+    ' === Пошук останньої інкасації (код 7 у колонці S — тобто індекс 18) ===
+    Dim EncashRow As Long : EncashRow = -1
+    Dim sCode     As String
+    Dim i As Long
+    For i = 3 To nLastRow - 1
+        sCode = oSheet.getCellByPosition(18, i).String
+        If sCode = "" Then Exit For
+        If sCode = "7" Then EncashRow = i
+    Next i
+
+    If EncashRow = -1 Then
+        ' Якщо інкасації немає — показуємо всі записи
+        For i = 3 To nLastRow - 1
+            If oSheet.getCellByPosition(18, i).String = "" Then Exit For
+            oSheet.Rows.getByIndex(i).IsVisible = True
+        Next i
+        MsgDlg "Увага", "Інкасацію не знайдено. Виведено всі записи.", False, 50 
+        Exit Sub
+    End If
+
+    ' === Отримуємо дату створення інкасації (колонка O — індекс 14) ===
+    Dim EncashDate As Double
+    EncashDate = oSheet.getCellByPosition(14, EncashRow).Value
+
+    ' === Створюємо дескриптор фільтра ===
+    Dim oFilterDesc As Object
+    oFilterDesc = oRange.createFilterDescriptor(True)
+
+    ' === Накладаємо 2 умови ===
+    ' — дата створення < дати інкасації (Created < EncashDate)
+    ' — дата вселення > дати інкасації (CheckIn > EncashDate)
+    Dim oFilterFields(1) As New com.sun.star.sheet.TableFilterField
+
+    With oFilterFields(0)
+        .Field = 14 ' колонка O — Created
+        .Operator = com.sun.star.sheet.FilterOperator.LESS
+        .IsNumeric = True
+        .NumericValue = EncashDate
+    End With
+
+    With oFilterFields(1)
+        .Field = 0 ' колонка A — CheckIn
+        .Operator = com.sun.star.sheet.FilterOperator.GREATER
+        .IsNumeric = True
+        .NumericValue = EncashDate
+    End With
+
+    oFilterDesc.FilterFields = oFilterFields()
+    oRange.filter(oFilterDesc)
+
+    ' === Відображаємо інкасацію та все що після ===
+    
+    For i = EncashRow To nLastRow - 1
+        If oSheet.getCellByPosition(18, i).String = "" Then Exit For
+        oSheet.Rows.getByIndex(i).IsVisible = True
+    Next i
 End Sub
 

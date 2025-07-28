@@ -42,7 +42,7 @@ Sub BlacklistStart()
     ' ==== Якщо захищений — знімаємо захист ====
     Dim bWasProtected As Boolean
     bWasProtected = oSheet.isProtected()
-    If bWasProtected Then oSheet.unprotect(NEGET_RULES)
+    If bWasProtected Then oSheet.unprotect(Deobfuscate(NEGET_RULES))
     
     ' отримуємо діапазон записів
     Set oRange = GetRecordsRange()
@@ -69,7 +69,7 @@ Sub BlacklistStart()
     End If
     
     ' читаємо значення з колонки D
-    sVal = Trim(oSheet.getCellByPosition(3, nRow).getString()) 
+    sVal = Trim(oSheet.getCellByPosition(18, nRow).getString()) 
     If IsNumeric(sVal) Then
         nVal = Val(sVal)
     Else
@@ -92,7 +92,7 @@ Sub BlacklistStart()
     ' ==== Повертаємо захист назад ====
 Cleanup:
     If bWasProtected Then 
-        oSheet.protect(NEGET_RULES)
+        oSheet.protect(Deobfuscate(NEGET_RULES))
     End If
 End Sub
 
@@ -126,10 +126,10 @@ Sub AddToBlacklist(oSel As Object)
     
     ' === Отримуємо аркуш і рядок ===
     oSheet = oSel.Spreadsheet
-    nRow = oSel.CellAddress.Row
+    nRow   = oSel.CellAddress.Row
     
     ' === Читаємо прізвище з колонки B ===
-    sSurname = Trim(oSheet.getCellByPosition(1, nRow).getString())
+    sSurname    = Trim(oSheet.getCellByPosition(1, nRow).getString())
     sPatronymic = Trim(oSheet.getCellByPosition(2, nRow).getString())
 
     ' === Створюємо діалог ===
@@ -140,10 +140,12 @@ Sub AddToBlacklist(oSel As Object)
     With oDialogModel
         .PositionX = 100
         .PositionY = 100
-        .Width = 200
-        .Height = 70
-        .Title = sSurname & " " & sPatronymic 
+        .Width     = 200
+        .Height    = 70
+        .Title     = sSurname & " " & sPatronymic 
     End With
+    
+    AddBackground(oDialogModel, BACKGROUND)
 
     ' === Поле введення коментаря ===
     FieldTemplate oDialogModel, "Comment", "Причина додавання в чорний список:" , 10, 20, "", 180, 180
@@ -171,14 +173,30 @@ Sub AddToBlacklist(oSel As Object)
     End If
     
     Dim nCode As Long
-    nCode = oSheet.getCellByPosition(3, nRow).getString()
+    nCode = oSheet.getCellByPosition(18, nRow).getString()
 
     ' === Записуємо коментар у колонку M (12‑та) ===
-    oSheet.getCellByPosition(12, nRow).setString( "Код | " & nCode & " | " & sComment)
-    oSheet.getCellByPosition(3, nRow).setValue(28)
+    oSheet.getCellByPosition(12, nRow).setString(FormatBlacklist(nCode, sComment))
+    oSheet.getCellByPosition(18, nRow).setValue(28)
     
     MsgDlg "Додано", sSurname & " " & sPatronymic & " додано до чорного списку", False, 50
 End Sub
+
+' =====================================================
+' === Функція FormatBlacklist =========================
+' =====================================================
+' → Формує текстовий запис для чорного списку.
+' → Витягує ПІБ адміністратора з комірки D1 аркуша "admins".
+' → Повертає рядок у форматі:
+'     Код | {код} | {дата/час} | {адміністратор} | {коментар}
+Function FormatBlacklist(nCode As Long, sComment) As String
+    Dim oDoc      As Object : oDoc = ThisComponent
+    Dim oSheetAdm As Object : oSheetAdm = oDoc.Sheets.getByName("admins")
+    Dim sAdm      As String : sAdm = oSheetAdm.getCellByPosition(3, 0).getString()
+    
+    FormatBlacklist = "Код | " & nCode & " | " & Format(Now, "DD.MM.YYYY HH:MM") & _
+        " | " & sAdm & " | " & sComment     
+End Function
 
 ' =====================================================
 ' === Function RemoveFromBlacklist ====================
@@ -205,7 +223,7 @@ Function RemoveFromBlacklist(oSheet As Object, nRow As Long) As Boolean
     oBlackListCell = oSheet.getCellByPosition(12, nRow)
     oSurnameCell   = oSheet.getCellByPosition(1, nRow)
     oPatronymic    = oSheet.getCellByPosition(2, nRow)
-    oCodeCell      = oSheet.getCellByPosition(3, nRow)
+    oCodeCell      = oSheet.getCellByPosition(18, nRow)
 
     parts = Split(Trim(oBlackListCell.getString()), "|")
 
@@ -292,7 +310,7 @@ Sub ToggleBlacklistFilter()
     Next i
 
     If hasFilter Then
-        ResetFilter(True)
+        ResetFilterlimited
         MsgDlg "Фільтр", "Фільтр скасовано", False, 50
     Else
         FilterBlacklist()

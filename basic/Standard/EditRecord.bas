@@ -4,7 +4,7 @@
 
 Sub StartEdit()
     ' False - не шукає першу порожню комірку по стовпцю А. (SelectFirstEmptyInA)
-    ' ResetPeopleTodayFilter(False) 
+    ResetFilter(False)
     If Not IsInAllowedColumns("редагування.") Then Exit Sub
     If Not IsInAllowedRows("редагування.") Then Exit Sub
     ' Позиціонує на стовпець А в тому ж рядку
@@ -33,26 +33,27 @@ Function ReadFromTable() As Variant
     data = CreateMap()
 
     ' Заповнюємо Map
-    MapPut data, "заселення", oSheet.getCellByPosition(0, row).String
-    MapPut data, "прізвище", oSheet.getCellByPosition(1, row).String
-    MapPut data, "ім'я по батькові", oSheet.getCellByPosition(2, row).String
-    MapPut data, "код", oSheet.getCellByPosition(3, row).String
-    MapPut data, "виселення", oSheet.getCellByPosition(4, row).String
-    MapPut data, "сплачено", oSheet.getCellByPosition(5, row).String
-    MapPut data, "видаток", oSheet.getCellByPosition(6, row).String
-    MapPut data, "прихід", oSheet.getCellByPosition(7, row).String
-    MapPut data, "коментар", oSheet.getCellByPosition(8, row).String
-    MapPut data, "телефон", oSheet.getCellByPosition(9, row).String
-    MapPut data, "паспортні дані", oSheet.getCellByPosition(10, row).String
-    MapPut data, "дата народження", oSheet.getCellByPosition(11, row).String
-    MapPut data, "чорний список", oSheet.getCellByPosition(12, row).String
-    MapPut data, "хостел", oSheet.getCellByPosition(13, row).String
-    MapPut data, "створено", oSheet.getCellByPosition(14, row).String
-    MapPut data, "причина зсуву", oSheet.getCellByPosition(15, row).String
-    MapPut data, "зсув", oSheet.getCellByPosition(16, row).String
-    MapPut data, "місце", oSheet.getCellByPosition(17, row).String
-    MapPut data, "історія", oSheet.getCellByPosition(18, row).String
-    
+    MapPut data, "заселення",        oSheet.getCellByPosition(0,  row).String
+    MapPut data, "прізвище",         oSheet.getCellByPosition(1,  row).String
+    MapPut data, "ім'я по батькові", oSheet.getCellByPosition(2,  row).String
+    MapPut data, "термін",           oSheet.getCellByPosition(3,  row).String
+    MapPut data, "виселення",        oSheet.getCellByPosition(4,  row).String
+    MapPut data, "сплачено",         oSheet.getCellByPosition(5,  row).String
+    MapPut data, "видаток",          oSheet.getCellByPosition(6,  row).String
+    MapPut data, "прихід",           oSheet.getCellByPosition(7,  row).String
+    MapPut data, "коментар",         oSheet.getCellByPosition(8,  row).String
+    MapPut data, "телефон",          oSheet.getCellByPosition(9,  row).String
+    MapPut data, "паспортні дані",   oSheet.getCellByPosition(10, row).String
+    MapPut data, "дата народження",  oSheet.getCellByPosition(11, row).String  
+    MapPut data, "чорний список",    oSheet.getCellByPosition(12, row).String
+    MapPut data, "хостел",           oSheet.getCellByPosition(13, row).String
+    MapPut data, "створено",         oSheet.getCellByPosition(14, row).String
+    MapPut data, "причина зсуву",    oSheet.getCellByPosition(15, row).String
+    MapPut data, "місце",            oSheet.getCellByPosition(16, row).String
+    MapPut data, "історія",          oSheet.getCellByPosition(17, row).String
+    MapPut data, "код",              oSheet.getCellByPosition(18, row).String
+    MapPut data, "id",               oSheet.getCellByPosition(19, row).String
+    MapPut data, "адмін",            oSheet.getCellByPosition(20, row).String            
     ' MsgBOx MapGet(data, "місце")
 
     ReadFromTable = data
@@ -121,15 +122,13 @@ Function IsInAllowedRows(Optional sAddTitle As Variant) As Boolean
     Dim oSel      As Object
     Dim oSheet    As Object
 
-
     oSheet = ThisComponent.Sheets(0)
 
-    
     oDoc = ThisComponent
     oSel = oDoc.CurrentSelection
     lRow = oSel.RangeAddress.StartRow
-    lValueD = CLng(oSheet.getCellByPosition(3, lRow).getValue)
-    sValueS = Trim(oSheet.getCellByPosition(3, lRow).getValue)
+    lValueD = CLng(oSheet.getCellByPosition(18, lRow).getValue)
+    sValueS = Trim(oSheet.getCellByPosition(18, lRow).getValue)
     
     aRange = GetAfterLastEncashRange()
     lStartRow = aRange(0)
@@ -169,7 +168,7 @@ Function IsInAllowedRows(Optional sAddTitle As Variant) As Boolean
 
     ' якщо діапазон = [0,0], курсор >2, E не порожня, просимо пароль
     If bOutOfRange And bHasData Then
-        If Not ShowPasswordDialog(NEGET_RULES) Then
+        If Not ShowNegetDialog(NEGET_RULES) Then
             MsgDlg "Відмова " & sAddTitle, "Операцію скасовано.", False, 55, 130
             IsInAllowedRows = False
             Exit Function
@@ -238,20 +237,14 @@ End Sub
 ' → Формує рядок історії у вигляді: значення1 | значення2 | … | значенняN.
 ' → Використовується для збереження змін у полі "історія" (S).
 Function FormatHistoryLine(data As Variant) As String
-    Dim keys As Variant
-    Dim i As Long, sLine As String
-
-    keys = Array( _
-        "заселення", "прізвище", "ім'я по батькові", "код", "виселення", _
-        "сплачено", "видаток", "прихід", "коментар", "телефон", _
-        "паспортні дані", "дата народження", "чорний список", "хостел", _
-        "створено", "причина зсуву", "зсув", "місце" _
-    )
+    Dim i As Long
+    Dim sLine As String
 
     sLine = ""
-    For i = LBound(keys) To UBound(keys)
-        If i > 0 Then sLine = sLine & " | "
-        sLine = sLine & MapGet(data, keys(i))
+
+    For i = LBound(data) To UBound(data)
+        If i > LBound(data) Then sLine = sLine & " | "
+        sLine = sLine & data(i).Value
     Next i
 
     FormatHistoryLine = sLine
@@ -266,26 +259,47 @@ End Function
 ' → Використовується під час редагування для відстеження змін.
 Function AppendHistory(row As Long) As Boolean
     On Error GoTo ErrHandler
-    Dim oSheet As Object, data As Variant
-    Dim sOldHistory As String, sNewHistory As String, sLine As String
+    Dim oSheet      As Object
+    Dim data        As Variant
+    Dim sOldHistory As String
+    Dim sNewHistory As String
+    Dim sLine       As String
 
-    oSheet = ThisComponent.Sheets(0)
-    data = ReadFromTable()
-    sLine = FormatHistoryLine(data)
-    sOldHistory = oSheet.getCellByPosition(18, row).String
+    oSheet      = ThisComponent.Sheets(0)
+    data        = FilterMapByKeys(ReadFromTable(), LIST_OF_HISTORY_FIELDS) ' тількі поля з LIST_OF_HISTORY_FIELDS
+    sLine       = FormatHistoryLine(data)
+    sOldHistory = oSheet.getCellByPosition(17, row).String
 
     If Len(Trim(sOldHistory)) > 0 Then
-        sNewHistory = sLine & Chr(10) & sOldHistory
+        sNewHistory = sOldHistory & Chr(10) & sLine  
     Else
-        sNewHistory = sLine
+        sNewHistory = LIST_OF_HISTORY_FIELDS & Chr(10) & sLine
     End If
 
-    oSheet.getCellByPosition(18, row).String = sNewHistory
+    oSheet.getCellByPosition(17, row).String = sNewHistory
     AppendHistory = True
     Exit Function
 
 ErrHandler:
     MsgDlg "Помилка редагування.", "Помилка запису історії: " & Err.Description, False, 55
     AppendHistory = False
+End Function
+
+Function FilterMapByKeys(data As Variant, keys As String) As Variant
+    Dim arrKeys() As String
+    Dim filtered As Variant
+    Dim k As String
+    arrKeys = Split(keys, "|")
+    filtered = CreateMap()
+    
+    Dim i As Long
+    For i = LBound(arrKeys) To UBound(arrKeys)
+        k = Trim(arrKeys(i))
+        If k <> "" And MapHasKey(data, k) Then
+            MapPut filtered, k, MapGet(data, k)
+        End If
+    Next i
+    
+    FilterMapByKeys = filtered
 End Function
 

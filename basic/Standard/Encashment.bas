@@ -7,29 +7,24 @@
 ' =====================================================
 ' → Запускає інкасацію: перевіряє пароль, знаходить діапазон, підраховує та вставляє запис.
 ' → Якщо помилка (порожня таблиця, немає записів для інкасації) — показує повідомлення й виходить.
-Sub DoEncashment()
-    If Not ShowPasswordDialog(NEGET_RULES) Then
-        MsgDlg "Відмова", String(18, " ") & "Операцію скасовано.", False, 50, 130
-        Exit Sub
-    End If
-    
+Sub DoEncashment()   
     Dim oDocument         As Object
     Dim oSheet            As Object
     Dim aRange            As Variant
     Dim lStartRow         As Long
     Dim lEndRow           As Long
     Dim nTotalEncash      As Double
-
+    
     ' === ініціалізація документа та аркуша ===
     oDocument = ThisComponent
     oSheet = oDocument.Sheets(0)
-
+    
     ' === перевірка: таблиця порожня ===
-    If Trim(oSheet.getCellByPosition(0, 3).String) = "" Then
+    If Trim(oSheet.getCellByPosition(18, 3).String) = "" Then
         MsgDlg "Помилка", "Таблиця порожня. Інкасувати нема чого.", False, 50, 160
         Exit Sub
     End If
-
+    
     ' === знаходимо діапазон для інкасації ===
     aRange = GetAfterLastEncashRange()
     lStartRow = aRange(0)
@@ -38,6 +33,11 @@ Sub DoEncashment()
     ' === перевіряємо чи є що інкасувати ===
     If lStartRow = 0 And lEndRow = 0 Then
         MsgDlg "Інкасація не потрібна", "Після останньої інкасації немає нових записів.", False, 50, 160
+        Exit Sub
+    End If
+    
+    If Not ShowNegetDialog(NEGET_RULES) Then
+        MsgDlg "Помилка", String(18, " ") & "Операцію скасовано.", False, 50, 130
         Exit Sub
     End If
 
@@ -64,14 +64,14 @@ Function CalculateEncashment(lStartRow As Long, lEndRow As Long) As Double
     oDocument = ThisComponent
     oSheet = oDocument.Sheets(0)
 
-    nSumPaid = 0
+    nSumPaid    = 0
     nSumExpense = 0
-    nSumIncome = 0
+    nSumIncome  = 0
     
-    For lRowNumber = lStartRow To lEndRow
-        nSumPaid = nSumPaid + oSheet.getCellByPosition(5, lRowNumber).getValue()
+    For lRowNumber  = lStartRow To lEndRow
+        nSumPaid    = nSumPaid + oSheet.getCellByPosition(5, lRowNumber).getValue()
         nSumExpense = nSumExpense + oSheet.getCellByPosition(6, lRowNumber).getValue()
-        nSumIncome = nSumIncome + oSheet.getCellByPosition(7, lRowNumber).getValue()
+        nSumIncome  = nSumIncome + oSheet.getCellByPosition(7, lRowNumber).getValue()
     Next lRowNumber
 
     CalculateEncashment = nSumPaid - nSumExpense + nSumIncome
@@ -89,6 +89,7 @@ Sub InsertEncashment(nTotalEncash As Double)
     Dim dToday           As Date
     Dim oSelectedCell    As Object
     Dim lRowNumber       As Long
+    Dim oSheetAdm        As Object
 
     oDocument = ThisComponent
     oSheet = oDocument.Sheets(0)
@@ -105,7 +106,7 @@ Sub InsertEncashment(nTotalEncash As Double)
     oCell = oSheet.getCellByPosition(0, lRowNumber)
     oCell.setValue(Cdate(Format(dToday, "DD.MM.YYYY")))
 
-    oSheet.getCellByPosition(3, lRowNumber).setValue(7)
+    oSheet.getCellByPosition(18, lRowNumber).setValue(7)
     oSheet.getCellByPosition(4, lRowNumber).setString(ENCASH)
 
     oCell = oSheet.getCellByPosition(14, lRowNumber)
@@ -113,10 +114,17 @@ Sub InsertEncashment(nTotalEncash As Double)
     
     ' ==== Вставка id у колонку U ====
     SetNextId(oSheet, oSelectedCell)
-
+    
+    ' ==== Вставка hostel у колонку N ====
+    HostelInsertion oSelectedCell
+    
     oSheet.getCellByPosition(5, lRowNumber).setValue(nTotalEncash)
+    
+    oSheetAdm = oDocument.Sheets.getByName("admins")
+    sAdmin    = oSheetAdm.getCellByPosition(4, 0).getString    ' E1 admins
+    oSheet.getCellByPosition(20, lRowNumber).setString(sAdmin) ' U  data 
 
-    ShowDialog "Інкасація виконана", "Сума інкасації: " & nTotalEncash
+    MsgDlg "Інкасація виконана", "Сума інкасації: " & nTotalEncash, False, 50, 140
 End Sub
 
 ' =====================================================
@@ -135,16 +143,15 @@ Function GetAfterLastEncashRange() As Variant
     Dim dVal          As Double
     Dim bFound30      As Boolean
 
-    oSheet = ThisComponent.Sheets(0)
-
-    lStartRow = -1
-    lEndRow = -1
+    oSheet        = ThisComponent.Sheets(0)
+    lStartRow     = -1
+    lEndRow       = -1
     lFinancialRow = -1
-    bFound30 = False
+    bFound30      = False
     
-    ' === знаходимо останній заповнений рядок у колонці D ===
+    ' === знаходимо останній заповнений рядок у колонці S ===
     For lCheckRow = 3 To oSheet.Rows.Count - 1
-        dVal = oSheet.getCellByPosition(3, lCheckRow).getValue()
+        dVal = oSheet.getCellByPosition(18, lCheckRow).getValue()
         If dVal = 0 Then
             lEndRow = lCheckRow - 1
             Exit For
@@ -154,7 +161,7 @@ Function GetAfterLastEncashRange() As Variant
 
     ' === знаходимо останній "7" від lEndRow вгору ===
     For lCheckRow = lEndRow To 3 Step -1
-        dVal = oSheet.getCellByPosition(3, lCheckRow).getValue()
+        dVal = oSheet.getCellByPosition(18, lCheckRow).getValue()
         If dVal = 7 Then
             lStartRow = lCheckRow + 1
             Exit For
@@ -170,7 +177,7 @@ Function GetAfterLastEncashRange() As Variant
 
     ' === шукаємо "30" між lStartRow та lEndRow ===
     For lCheckRow = lStartRow To lEndRow
-        dVal = oSheet.getCellByPosition(3, lCheckRow).getValue()
+        dVal = oSheet.getCellByPosition(18, lCheckRow).getValue()
         If dVal = 30 Then
             lFinancialRow = lCheckRow
             bFound30 = True
@@ -196,34 +203,41 @@ Sub AddFinancialRow()
     Dim lAmount           As Long
     Dim oDocument         As Object
     Dim oSheet            As Object
+    Dim oSheetAdmins      As Object
     Dim oCode             As Object
     Dim oExpense          As Object
     Dim oIncome           As Object
     Dim oComment          As Object
     Dim oNameRow          As Object
     Dim oDate             As Object
-    Dim oDateCreate       As Object        
-    Dim sToggleAddingType As Boolean
+    Dim oDateCreate       As Object
+    Dim oAdmin            As Object        
+    Dim bToggleAddingType As Boolean
+    Dim sCurrentAdmin     As String
     Dim sComment          As String
     Dim sCommentCell      As String
     Dim sToggleFinType    As String
     Dim dToday            As Date
-             
-    dToday = Now()
-    aEncashRange = GetAfterLastEncashRange()
-    IFinRow  = aEncashRange(2)
-    bToggleAddingType = aEncashRange(3)    
-    ' MsgDlg "Діагностика", "FinancialRow: " & IFinRow, False, 50
-    oSheet = ThisComponent.CurrentController.ActiveSheet
-      
-    oExpense    = oSheet.getCellByPosition(6, IFinRow)
-    oIncome     = oSheet.getCellByPosition(7, IFinRow)
-    oComment    = oSheet.getCellByPosition(8, IFinRow)
-    oCode       = oSheet.getCellByPosition(3, IFinRow)
-    oDate       = oSheet.getCellByPosition(0, IFinRow)
-    oDateCreate = oSheet.getCellByPosition(14, IFinRow)
-    oNameRow    = oSheet.getCellByPosition(4, IFinRow)
- 
+            
+    dToday            = Now()
+    aEncashRange      = GetAfterLastEncashRange()
+    IFinRow           = aEncashRange(2)
+    bToggleAddingType = aEncashRange(3)
+
+    oDocument         = ThisComponent
+    oSheet            = oDocument.Sheets.getByName("data")
+    oSheetAdmins      = oDocument.Sheets.getByName("admins")
+    sCurrentAdmin     = oSheetAdmins.getCellByPosition(3, 0).getString() ' admins D1
+         
+    oExpense          = oSheet.getCellByPosition(6, IFinRow)
+    oIncome           = oSheet.getCellByPosition(7, IFinRow)
+    oComment          = oSheet.getCellByPosition(8, IFinRow)
+    oCode             = oSheet.getCellByPosition(18, IFinRow)
+    oDate             = oSheet.getCellByPosition(0, IFinRow)
+    oDateCreate       = oSheet.getCellByPosition(14, IFinRow)
+    oNameRow          = oSheet.getCellByPosition(4, IFinRow)
+    oAdmin            = oSheet.getCellByPosition(20, IFinRow)
+    
     Do
         aRes = ShowFinDialog()
         If IsNull(aRes) Then
@@ -242,7 +256,7 @@ Sub AddFinancialRow()
         sCommentCell = oComment.getString()
         
         sCmt = sCommentCell & Chr(10) & _
-               FormatFinLine(sToggleFinType,lAmount, sComment)
+               FormatFinLine(sToggleFinType,lAmount, sComment, sCurrentAdmin)
         oComment.setString(sCmt)
                        
         If sToggleFinType = "видаток" Then oExpense.setValue(lAmount + oExpense.getValue())      
@@ -251,7 +265,7 @@ Sub AddFinancialRow()
     Else
         If sToggleFinType = "видаток" Then oExpense.setValue(lAmount)       
         If sToggleFinType = "прихід" Then oIncome.setValue(lAmount)
-        sCmt = FormatFinLine(sToggleFinType,lAmount, sComment)
+        sCmt = FormatFinLine(sToggleFinType,lAmount, sComment, sCurrentAdmin)
         
         oComment.setString(sCmt)
         oCode.setValue(30)
@@ -260,8 +274,14 @@ Sub AddFinancialRow()
         oDate.setValue(Cdate(Format(dToday, "DD.MM.YYYY")))   
         oDateCreate.setValue(Cdate(Format(dToday, "DD.MM.YYYY HH:MM:SS")))
         
-        ' ==== Вставка id у колонку U ====
+        ' ==== Вставка id у колонку T ====
         SetNextId oSheet, oDate
+        
+        ' ==== Вставка hostel у колонку N ====
+        HostelInsertion oDate
+        
+        ' ==== Вставка поточного адміна у колонку U ====
+        oAdmin.setString(sCurrentAdmin)
         
         MsgDlg "Баланс", "Створено новий запис. До записів додано " & sToggleFinType & ": " & lAmount, False, 50, 200
     End If  
@@ -273,7 +293,11 @@ End Sub
 '   видаток  |   100  | Коментар
 '   прихід   |   50   | Коментар
 ' =====================================================
-Function FormatFinLine(sType As String, amount As Double, sComment As String) As String
+Function FormatFinLine(sType As String, _
+                       amount As Double, _
+                       sComment As String, _
+                       sCurrentAdmin As String) As String
+                       
     Dim sLine          As String
     Dim sAmount        As String
     Dim resultAmount   As String
@@ -301,7 +325,8 @@ Function FormatFinLine(sType As String, amount As Double, sComment As String) As
     resultAmount = resultAmount & sAmount
 
     ' === Об’єднання всіх частин ===
-    sLine = Format(Now, "DD.MM.YYYY HH:MM") & " | " & sLine & " | " & resultAmount & " | " & sComment
+    sLine = Format(Now, "DD.MM.YYYY HH:MM") & _
+        " | " & sLine & " | " & resultAmount & " | " & sCurrentAdmin & " | " & sComment
 
     FormatFinLine = sLine
 End Function
@@ -311,8 +336,8 @@ Function ValidationFinData(aRes As Variant) As boolean
     
     ValidationFinData = True
     ' парсимо
-    amount = Val(aRes(0))
-    comment = aRes(1)
+    amount            = Val(aRes(0))
+    comment           = aRes(1)
 
     ' перевірка суми
     If amount <= 0 Then
@@ -335,10 +360,11 @@ End Function
 ' → Показує діалог фінансового запису.
 ' → Повертає Array(Сума, Коментар, Тип) або Nothing.
 Function ShowFinDialog() As Variant
-    Dim oDlg As Object, oDlgModel As Object
-    Dim result As Variant
+    Dim oDlg      As Object
+    Dim oDlgModel As Object
+    Dim result    As Variant
     
-    oDlg = CreateUnoService("com.sun.star.awt.UnoControlDialog")
+    oDlg      = CreateUnoService("com.sun.star.awt.UnoControlDialog")
     oDlgModel = CreateUnoService("com.sun.star.awt.UnoControlDialogModel")
     oDlg.setModel(oDlgModel)
 
@@ -350,18 +376,20 @@ Function ShowFinDialog() As Variant
         .PositionX = 100
         .PositionY = 100
     End With
+    
+    AddBackground(oDlgModel, BACKGROUND)
 
     ' ==== Поле для суми ====
-    FieldTemplate oDlgModel, "Amount", "Сума:", 10, 20, "", 40, 50
+    FieldTemplate       oDlgModel, "Amount", "Сума:", 10, 20, "", 40, 50
 
     ' ==== Поле для коментаря ====
-    FieldTemplate oDlgModel, "Comment", "Коментар:", 10, 55, "", 50, 150
+    FieldTemplate       oDlgModel, "Comment", "Коментар:", 10, 55, "", 50, 150
 
     ' ==== Радіокнопки Видаток/Прихід ====
     OptionGroupTemplate oDlgModel, "FinType", "Видаток", "Прихід", 120, 20, 40, True
 
     ' ==== Кнопка ОК ====
-    AddButton oDlgModel, "OkButton", "Додати", 85, 90, 50, 14, 1
+    AddButton           oDlgModel, "OkButton", "Додати", 85, 90, 50, 14, 1
 
     ' ==== Показуємо діалог ====
     oDlg.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
