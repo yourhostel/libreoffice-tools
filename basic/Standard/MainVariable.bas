@@ -3,13 +3,16 @@
 ' MainVariable.bas
 
 Public Const HOSTEL                     = "Саперка"
+Public Const MANAGER                    = "Черкашина Світлана Віталіївна"
+Public Const TOP_MANAGER                = "top"
+Public Const ADMIN_MANAGER              = "admin"
 Public Const ENCASH                     = "інкасація"
 Public Const BALANCE                    = "баланс"
 Public Const PATH_TO_LOGO               = "file:///home/tysser/Documents/LibreOfficeAssets/logo_1.png"
 Public Const BACKGROUND                 = "file:///home/tysser/Documents/LibreOfficeAssets/20.png"
 Public Const VALID_DURATIONS            = "1;2;3;4;5;6;7;14;21;28"
-Public Const VISIBLE_ROWS               = 20
-Public Const NEGET_RULES                = "9B9899"
+Public Const VISIBLE_ROWS               = 25
+Public Const NEGET_RULES                = "F09D8C98CE"
 Public Const LIST_OF_CODES              = "1;2;3;4;5;6;8;9;10;11"
 Public Const LIST_OF_CANCELLATIONS      = "Скасування;Пауза;Перенесення;Часткова оплата"
 Public Const EXCLUDED_CODES             = " 28 20 21 22 23 7 30 " ' '28' ч/с, '20 +' скасовано, '7' инкасація, '30' баланс
@@ -19,10 +22,12 @@ Public Const ACTION_CREATE              = "create"
 Public Const ACTION_EDIT                = "edit"
 Public Const ACTION_CHECK_ROW           = "check_row"
 Public Const ACTION_CHECK_CANCEL        = "check_cancel"
+Public Const SEARCH_LIST                = "за місцем;по прізвищу;за iм'ям по-батькові;по id;за номером телефону;по адміністратору;за датою заселення;за датою виселення;за датою народження;за терміном;за кодом"
+Public Const SEARCH_MONTHS_AGO          = -2 ' від 0 до -12 
 Public Const ALL_PLACES                 = "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18;19;20;21;22;23;24;25;26;27;28"
 Public Const ALL_EXPENSES               = "зарплата;повернення;хімія;розхідники;зв’язок;запчастини;обладнання;ремонт;реклама;комуналка;оренда;охорона;податки;ліцензії;штрафи;страховка"
 Public Const ALL_INCOMES                = "товари;оренда;послуги;депозити;харчування"
-Public Const LIST_OF_HISTORY_FIELDS     = "заселення|прізвище|ім'я по батькові|термін|виселення|сплачено|видаток|прихід|чорний список|створено|причина зсуву|місце|код|id|адмін"
+Public Const LIST_OF_HISTORY_FIELDS     = "заселення|прізвище|ім'я по батькові|термін|виселення|сплачено|видаток|прихід|чорний список|створено|причина зсуву|місце|код|id|адмін що редагував"
 Public Const TEXT_COLOR                 = "255 255 255"
 
 Function pRGB(s As String) As Long
