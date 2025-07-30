@@ -198,10 +198,13 @@ Function CountVisibleRows(oRange As Object) As Variant
 End Function
 
 ' =====================================================
-' === Процедура ResetPeopleTodayFilter ================
+' === Процедура ResetFilter ============================
 ' =====================================================
-' → Скидає всі фільтри на діапазоні людей.
-' → Видаляє умови фільтрації та ставить курсор на першу пусту клітинку в колонці A.
+' → Скидає фільтр на основному діапазоні записів (GetRecordsRange).
+' → Створює пустий дескриптор фільтра й застосовує його до діапазону.
+'
+' → Якщо параметр SetCursor = True — додатково викликає SelectFirstEmptyInA
+'     для переходу до першої порожньої клітинки в колонці A.
 Sub ResetFilter(SetCursor As Boolean)
     Dim oRange      As Object
     Dim oFilterDesc As Object
@@ -222,6 +225,12 @@ Sub ResetFilter(SetCursor As Boolean)
     End If
 End Sub
 
+' =====================================================
+' === Процедура ResetFilterAdmin ======================
+' =====================================================
+' → Скидає фільтр з підтвердженням через діалог авторизації ShowNegetDialog.
+' → Якщо авторизацію скасовано — виводить повідомлення та припиняє виконання.
+' → Інакше викликає ResetFilter із передачею курсора.
 Sub ResetFilterAdmin(True)
     If Not ShowNegetDialog(NEGET_RULES) Then
         MsgDlg "Помилка", String(18, " ") & "Операцію скасовано.", False, 50, 130
@@ -231,11 +240,21 @@ Sub ResetFilterAdmin(True)
     ResetFilter(SetCursor)  
 End Sub
 
+' =====================================================
+' === Процедура ResetFilterlimited ====================
+' =====================================================
+' → Скидає фільтр і обмежує видимість таблиці до останніх VISIBLE_ROWS рядків.
+' → Використовується для обмежених прав доступу (без діалогу підтвердження).
 Sub ResetFilterlimited()
     ResetFilter(True)
     LimitScroll()
 End Sub
 
+' =====================================================
+' === Процедура LimitScroll ===========================
+' =====================================================
+' → Приховує усі рядки таблиці "Data", крім останніх VISIBLE_ROWS.
+' → Якщо загальна кількість рядків менша за VISIBLE_ROWS — нічого не робить.
 Sub LimitScroll()
     Dim oDoc     As Object : odoc     = ThisComponent
     Dim oSheet   As Object : oSheet   = oDoc.Sheets.getByName("data")
@@ -248,6 +267,11 @@ Sub LimitScroll()
     oRange.Rows.IsVisible = False
 End Sub
 
+' =====================================================
+' === Функція FindLastRow =============================
+' =====================================================
+' → Визначає останній використаний рядок у таблиці "Data".
+' → Повертає номер останнього непорожнього рядка (Long).
 Function FindLastRow() As Long
     Dim oSheet  As Object : oSheet = ThisComponent.Sheets.getByName("Data")
     Dim oCursor As Object : oCursor = oSheet.createCursor()
@@ -337,6 +361,20 @@ Sub DebugRangeValues()
     MsgDlg "Debug Values", sOut, True
 End Sub
 
+' =====================================================
+' === Процедура FilterEncashmentAudit =================
+' =====================================================
+' → Виконує фільтрацію записів для аудиту інкасації (код 7 у колонці S).
+'
+' → Алгоритм:
+'     1. Знаходить останній запис інкасації (код "7").
+'     2. Якщо інкасацію не знайдено — показує всі записи.
+'     3. Якщо знайдена — фільтрує записи за умовами:
+'         • Created (O) < дати інкасації
+'         • CheckIn (A) > дати інкасації
+'     4. Додатково відображає інкасацію та всі записи після неї.
+'
+' → Для отримання діапазону використовується зовнішня функція GetRecordsRange.
 Sub FilterEncashmentAudit()
     Dim oDoc      As Object : oDoc = ThisComponent
     Dim oSheet    As Object : oSheet = oDoc.Sheets.getByName("Data")
@@ -347,6 +385,7 @@ Sub FilterEncashmentAudit()
     Dim EncashRow As Long : EncashRow = -1
     Dim sCode     As String
     Dim i As Long
+    
     For i = 3 To nLastRow - 1
         sCode = oSheet.getCellByPosition(18, i).String
         If sCode = "" Then Exit For
