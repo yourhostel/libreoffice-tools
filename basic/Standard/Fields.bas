@@ -216,7 +216,7 @@ Sub OptionGroupTemplate(oDialogModel As Object, _
     Dim oOptionLeft As Object
     oOptionLeft = oDialogModel.createInstance("com.sun.star.awt.UnoControlRadioButtonModel")
     oOptionLeft.Name = NamePrefix & "Left"
-    oOptionLeft.PositionX = PositionX
+    oOptionLeft.PositionX = PositionX + 8
     oOptionLeft.PositionY = PositionY
     oOptionLeft.Width = WidthEach
     oOptionLeft.Height = 12
@@ -227,7 +227,7 @@ Sub OptionGroupTemplate(oDialogModel As Object, _
     Dim oOptionRight As Object
     oOptionRight = oDialogModel.createInstance("com.sun.star.awt.UnoControlRadioButtonModel")
     oOptionRight.Name = NamePrefix & "Right"
-    oOptionRight.PositionX = PositionX + WidthEach + 10
+    oOptionRight.PositionX = PositionX + WidthEach + 16
     oOptionRight.PositionY = PositionY
     oOptionRight.Width = WidthEach
     oOptionRight.Height = 12
