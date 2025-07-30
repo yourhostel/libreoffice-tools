@@ -53,8 +53,6 @@ Sub MsgDlg(sTitle   As String, _
         .BackgroundColor = RGB(22, 11, 172)
     End With
     
-    
-
     ' додаємо текстове поле на діалог
     oDlgModel.insertByName("MessageBox", oTextModel)
     
@@ -73,7 +71,6 @@ Sub MsgDlg(sTitle   As String, _
 
     'oDlgModel.insertByName(oLbl.Name, oLbl)
     
-
     ' ==== Додаємо кнопку OK ====
     ' Викликаємо підпроцедуру, яка додає кнопку (твоя функція AddButton)
     ' Аргументи: модель, ім'я, текст, X, Y, ширина, висота, тип кнопки
