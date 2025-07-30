@@ -3,34 +3,35 @@
 ' EditRecord.bas
 
 Sub StartEdit()
-    ' False - не шукає першу порожню комірку по стовпцю А. (SelectFirstEmptyInA)
-    ResetFilter(False)
-    If Not IsInAllowedColumns("редагування.") Then Exit Sub
-    If Not IsInAllowedRows("редагування.") Then Exit Sub
+    Dim aAllRows As Variant : aAllRows = IsInAllowedRows("редагування.")
+    
+    If Not IsInAllowedColumns("редагування.") Then Exit Sub    
+    If Not aAllRows(0) Then Exit Sub
+      
     ' Позиціонує на стовпець А в тому ж рядку
     ' MoveCursorToColumnA()
     ' ACTION_EDIT - змінює логіку роботи форми
     ' Змінює назву кнопки
     ' Ініціалізує поля даними, які зчитані з рядка, що редагується 
-    ShowForm(ACTION_EDIT)
+    ShowForm(ACTION_EDIT, aAllRows(1))
 End Sub
 
 ' =====================================================
 ' === Функція ReadFromTable ===========================
 ' =====================================================
 ' → Зчитує дані з активного рядка таблиці у Map.
-' → Історію не додає.
-Function ReadFromTable() As Variant
+Function ReadFromTable(Optional row As Variant) As Variant
     Dim oSheet As Object
     Dim oSel   As Object
-    Dim row    As Long
     Dim data   As Variant
     
     oSheet = ThisComponent.Sheets(0)
-    oSel = ThisComponent.CurrentSelection
-    row = oSel.RangeAddress.StartRow
-
-    data = CreateMap()
+    data   = CreateMap()
+    
+    If IsMissing(row) Then
+        oSel = ThisComponent.CurrentSelection
+        row = oSel.RangeAddress.StartRow
+    End If
 
     ' Заповнюємо Map
     MapPut data, "заселення",        oSheet.getCellByPosition(0,  row).String
@@ -76,7 +77,7 @@ Sub ShowFieldsInMsgBox(Fields As Variant)
         'End If
     Next i
 
-    MsgBox text, 64, "Дані з рядка"
+    MsgBox sText, 64, "Дані з рядка"
 End Sub
 
 ' =====================================================
@@ -85,13 +86,16 @@ End Sub
 ' → Перевіряє, чи курсор знаходиться в межах стовпців A–S.
 ' → Повертає True, якщо так, інакше False та показує повідомлення.
 Function IsInAllowedColumns(Optional sAddTitle As Variant) As Boolean
+
     If IsMissing(sAddTitle) Or Len(Trim(sAddTitle)) = 0 Then sAddTitle = ""
+    
     Dim oDoc As Object
     Dim oSel As Object
     Dim col  As Long
+    
     oDoc = ThisComponent
     oSel = oDoc.CurrentSelection
-    col = oSel.RangeAddress.StartColumn
+    col  = oSel.RangeAddress.StartColumn
     
     If col < 0 Or col > 20 Then
         MsgDlg "Помилка " & sAddTitle, "Курсор має бути в межах стовпців A–U.", False, 50, 140
@@ -110,29 +114,31 @@ End Function
 ' → Якщо поза й треба пароль — просить пароль.
 ' → Якщо неможливо редагувати — виводить повідомлення.
 ' → Повертає True, якщо редагування дозволено.
-Function IsInAllowedRows(Optional sAddTitle As Variant) As Boolean
+Function IsInAllowedRows(Optional sAddTitle As Variant) As Variant
+
     If IsMissing(sAddTitle) Or Len(Trim(sAddTitle)) = 0 Then sAddTitle = ""
+    
     Dim lStartRow As Long
     Dim lEndRow   As Long
     Dim lRow      As Long
     Dim lValueD   As Long
     Dim sValueS   As String
+    Dim sValueE   As String
     Dim aRange    As Variant
     Dim oDoc      As Object
     Dim oSel      As Object
     Dim oSheet    As Object
 
-    oSheet = ThisComponent.Sheets(0)
-
-    oDoc = ThisComponent
-    oSel = oDoc.CurrentSelection
-    lRow = oSel.RangeAddress.StartRow
-    lValueD = CLng(oSheet.getCellByPosition(18, lRow).getValue)
-    sValueS = Trim(oSheet.getCellByPosition(18, lRow).getValue)
-    
-    aRange = GetAfterLastEncashRange()
+    oSheet    = ThisComponent.Sheets(0)
+    oDoc      = ThisComponent
+    oSel      = oDoc.CurrentSelection
+    lRow      = oSel.RangeAddress.StartRow
+    lValueD   = CLng(oSheet.getCellByPosition(18, lRow).getValue)
+    sValueS   = Trim(oSheet.getCellByPosition(18, lRow).getValue)
+    sValueE   = Trim(oSheet.getCellByPosition(4, lRow).getString) ' E — виселення   
+    aRange    = GetAfterLastEncashRange()
     lStartRow = aRange(0)
-    lEndRow = aRange(1)
+    lEndRow   = aRange(1)
     
     Select Case lValueD
         Case 28
@@ -158,11 +164,13 @@ Function IsInAllowedRows(Optional sAddTitle As Variant) As Boolean
     
     ' якщо курсор всередині діапазону — ОК
     If lRow >= lStartRow And lRow <= lEndRow Then
-        IsInAllowedRows = True
+        IsInAllowedRows = Array(True, False)
         Exit Function
     End If
     
-    Dim bOutOfRange As Boolean, bHasData As Boolean
+    Dim bOutOfRange As Boolean
+    Dim bHasData    As Boolean
+    
     bOutOfRange = (lStartRow = 0 And lEndRow = 0) Or (lRow < lStartRow)
     bHasData = lRow > 2 And sValueE <> ""
 
@@ -170,15 +178,15 @@ Function IsInAllowedRows(Optional sAddTitle As Variant) As Boolean
     If bOutOfRange And bHasData Then
         If Not ShowNegetDialog(NEGET_RULES) Then
             MsgDlg "Відмова " & sAddTitle, "Операцію скасовано.", False, 55, 130
-            IsInAllowedRows = False
+            IsInAllowedRows = Array(False, True)
             Exit Function
         End If
 
-        IsInAllowedRows = True
+        IsInAllowedRows = Array(True, True)
         Exit Function
     End If
     
-    IsInAllowedRows = isBelowEncashRange(Array(lRow, lStartRow, lEndRow))
+    IsInAllowedRows = Array(isBelowEncashRange(Array(lRow, lStartRow, lEndRow)), False)
 End Function
 
 ' =====================================================
@@ -224,7 +232,7 @@ Sub MoveCursorToColumnA()
     Dim oDoc, oCtrl, oSel, row
     oDoc = ThisComponent
     oSel = oDoc.CurrentSelection
-    row = oSel.RangeAddress.StartRow
+    row  = oSel.RangeAddress.StartRow
 
     oCtrl = oDoc.CurrentController
     oCtrl.select(oDoc.Sheets(0).getCellByPosition(0, row))
@@ -236,17 +244,28 @@ End Sub
 ' → Приймає `data` (Map із полями рядка).
 ' → Формує рядок історії у вигляді: значення1 | значення2 | … | значенняN.
 ' → Використовується для збереження змін у полі "історія" (S).
-Function FormatHistoryLine(data As Variant) As String
-    Dim i As Long
-    Dim sLine As String
+Function FormatHistoryLine(data As Variant, oDialog As Object) As String
+    Dim i      As Long
+    Dim sLine  As String : sLine = ""
+    Dim sAdmin As String
+    Dim aParts As Variant
 
-    sLine = ""
-
+    ' ==== Отримуємо текст з мітки ====
+    aParts = Split(oDialog.getControl("AdminLabel").getText(), ":")
+    
+    If UBound(aParts) >= 1 Then
+        sAdmin = Trim(aParts(1))
+    Else
+        sAdmin = ""
+    End If
+        
     For i = LBound(data) To UBound(data)
         If i > LBound(data) Then sLine = sLine & " | "
         sLine = sLine & data(i).Value
     Next i
-
+    
+    sLine = sLine & " | " & sAdmin
+    
     FormatHistoryLine = sLine
 End Function
 
@@ -257,7 +276,7 @@ End Function
 ' → Додає його на початок існуючої історії (якщо вона є).
 ' → Повертає `True`, якщо запис історії успішний.
 ' → Використовується під час редагування для відстеження змін.
-Function AppendHistory(row As Long) As Boolean
+Function AppendHistory(row As Long, oDialog As Object) As Boolean
     On Error GoTo ErrHandler
     Dim oSheet      As Object
     Dim data        As Variant
@@ -267,7 +286,7 @@ Function AppendHistory(row As Long) As Boolean
 
     oSheet      = ThisComponent.Sheets(0)
     data        = FilterMapByKeys(ReadFromTable(), LIST_OF_HISTORY_FIELDS) ' тількі поля з LIST_OF_HISTORY_FIELDS
-    sLine       = FormatHistoryLine(data)
+    sLine       = FormatHistoryLine(data, oDialog)
     sOldHistory = oSheet.getCellByPosition(17, row).String
 
     If Len(Trim(sOldHistory)) > 0 Then
