@@ -287,7 +287,3 @@ Function ParseCodeAndComment(sText As String) As Variant
     ' Повертаємо код та старий коментар
     ParseCodeAndComment = Array(CLng(sCodePart), sRest)
 End Function
-
-'Function IsCancelCode(nCode As Long) As Boolean
-    'IsCancelCode = InStr(" 20 21 22 23 ", " " & nCode & " ") > 0
-'End Function
