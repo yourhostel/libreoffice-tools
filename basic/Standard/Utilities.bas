@@ -657,59 +657,6 @@ Function DayWord(n As Long) As String
 End Function
 
 ' =====================================================
-' === Функція ShowPasswordDialog ======================
-' =====================================================
-' → Виводить діалог для введення пароля.
-' → Порівнює введений пароль з очікуваним та повертає True, якщо вони збігаються.
-Function ShowNegetDialog(sExpectedPassword As String) As Boolean
-
-    Dim oDialog      As Object
-    Dim oDialogModel As Object
-    Dim oField       As Object
-    Dim oButton      As Object
-    Dim sInput       As String
-    Dim bResult      As Boolean
-
-    ' створюємо діалог і модель
-    oDialog = CreateUnoService("com.sun.star.awt.UnoControlDialog")
-    oDialogModel = CreateUnoService("com.sun.star.awt.UnoControlDialogModel")
-    oDialog.setModel(oDialogModel)
-
-    With oDialogModel
-        .PositionX = 100
-        .PositionY = 100
-        .Width     = 160
-        .Height    = 60
-        .Title     = "Введіть пароль"
-    End With
-    
-    AddBackground(oDialogModel, BACKGROUND)
-    
-    ' поле пароля
-    FieldTemplate oDialogModel, "Password", "Пароль:", 30, 15, "", 40, 100
-
-    ' кнопка OK
-    AddButton oDialogModel, "OkButton", "OK", 55, 40, 50, 14, 1 ' 1 = OK кнопка
-
-    ' створюємо peer
-    oDialog.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
-    
-    ' Приховуємо пароль під час введення
-    oDialog.getControl("PasswordField").Model.EchoChar = Asc("*")
-
-    ' виконуємо діалог
-    If oDialog.execute() = 1 Then
-        oField = oDialog.getControl("PasswordField")
-        sInput = oField.getModel().Text
-        bResult = (Obfuscate(sInput) = sExpectedPassword)
-    End If
-
-    oDialog.dispose()
-
-    ShowNegetDialog = bResult
-End Function
-
-' =====================================================
 ' === Функція GetOccupiedRows =========================
 ' =====================================================
 ' → Повертає SheetCellRanges із зайнятими місцями на вказану дату.
@@ -765,15 +712,16 @@ Sub TestOccupiedRows(dCheckIn As Date, targetDate As Date, dCheckOut As Date)
     ") < dCheckOut(" & dCheckOut & ")", False, 50, 260 
 End Sub
 
+' === Функція GetPlacesString ===========================
 ' =====================================================
-' === Функція GetPlacesString =========================
-' =====================================================
-' → Повертає рядок місць
-' → Режими:
-'   — "vacant"   = вільні
-'   — "occupied" = зайняті
-'   — "all"      = всі (ALL_PLACES)
-' =====================================================
+' → Формує текстове представлення списку місць (всі, зайняті або вільні).
+' → Параметри:
+'     oOccupiedRows — набір рядків із зайнятими місцями;
+'     sSeparator — роздільник між місцями (за замовчуванням: ";");
+'     sMode — режим: "vacant" (за замовчуванням), "all", "occupied".
+' → Повертає:
+'     - рядок місць (для режимів "vacant" або "all");
+'     - або табличку з інфо про кожне зайняте місце ("occupied").
 Function GetPlacesString(oOccupiedRows As Object, _
                          Optional sSeparator As String, _
                          Optional sMode As String) As String
@@ -814,9 +762,9 @@ Function GetPlacesString(oOccupiedRows As Object, _
         Case "occupied"
                            
                 Dim sResult As String
-                sResult = Fr("заселення", 10) & "|" & _
-                          Fr("виселення", 10) & "|" & _
-                          Fr("місце", 6)      & "|" & _
+                sResult = Fr("заселення", 10) & "| " & _
+                          Fr("виселення", 10) & "| " & _
+                          Fr("місце", 6)      & "| " & _
                           Fr("Id", 7)         & "| " & _
                           Fr("прізвище, ім'я по батькові", 36) & Chr(10) & _
                           String(40, Chr(8212)) & Chr(10)
@@ -841,9 +789,9 @@ Function GetPlacesString(oOccupiedRows As Object, _
                 End With
 
                 sResult = sResult & _
-                    Fr(sCheckIn, 11)      & "|" & _
-                    Fr(sCheckOut, 11)     & " |" & _
-                    Fr(sPlace, 6)         & "|" & _
+                    Fr(sCheckIn, 11)      & "| " & _
+                    Fr(sCheckOut, 11)     & " | " & _
+                    Fr(sPlace, 6)         & "| " & _
                     Fr(sId, 6)            & " | " & _
                     Fr(sLast & " " & sPatr, 36) & Chr(10)    
                 Next i
@@ -855,6 +803,14 @@ Function GetPlacesString(oOccupiedRows As Object, _
     End Select
 End Function
 
+' === Функція Fr ========================================
+' =====================================================
+' → Форматує рядок до фіксованої ширини, додаючи заповнення.
+' → Параметри:
+'     s — рядок для форматування;
+'     w — цільова ширина;
+'     d — символ заповнення (за замовчуванням: вузький пробіл).
+' → Повертає: вирівняний текст ширини `w`.
 Function Fr(s, w, Optional d As Variant) As string
     If IsMissing(d) Then d = Chr(8194)
     If Len(s) > w Then w = Len(s)
@@ -1100,21 +1056,40 @@ End Sub
 ' → Виділяє тільки дату з рядка, що містить дату й час.
 ' → Відкидає час та перенос рядків, залишаючи лише частину з датою.
 ' → Якщо рядок не містить коректної дати — повертає 0 (Null Date).
-Function UnformattingDate(sTarget As String) As Date
-    ' залишаємо тільки дату
-    If InStr(sTarget, Chr(10)) > 0 Then
-        sTarget = Trim(Left(sTarget, InStr(sTarget, Chr(10)) - 1))
-    ElseIf InStr(sTarget, " ") > 0 Then
-        sTarget = Trim(Left(sTarget, InStr(sTarget, " ") - 1))
-    End If
+Function UnformattingDate(sTarget As String, Optional bKeepTime As Variant) As Date
+    If IsMissing(bKeepTime) Then bKeepTime = False
+    
+    If Not bKeepTime then
+        If InStr(sTarget, Chr(10)) > 0 Then
+            sTarget = Trim(Left(sTarget, InStr(sTarget, Chr(10)) - 1))
+        ElseIf InStr(sTarget, " ") > 0 Then
+            sTarget = Trim(Left(sTarget, InStr(sTarget, " ") - 1))
+        End If
 
+        If IsDate(sTarget) Then
+            UnformattingDate = CDate(sTarget)
+        Else
+            UnformattingDate = 0
+        End If
+    Else
+        ' замінити перенос на пробіл і обрізати
+        sTarget = Replace(sTarget, Chr(10), " ")
+        sTarget = Trim(sTarget)
+    End If
+    
+    
     If IsDate(sTarget) Then
         UnformattingDate = CDate(sTarget)
     Else
         UnformattingDate = 0
-    End If
+    End If  
 End Function
 
+' === Процедура PersonalDataById ========================
+' =====================================================
+' → Шукає в таблиці користувача за введеним ID і заповнює відповідні поля діалогу.
+' → Виводить помилки у разі порожнього ID, відсутності ID в таблиці або некоректного коду.
+' → Повертає: нічого (Sub), працює через побічні ефекти (UI).
 Sub PersonalDataById(oEvent As Object)
     Dim oDialog     As Object
     Dim oSheet      As Object
@@ -1176,6 +1151,12 @@ Sub PersonalDataById(oEvent As Object)
     MsgDlg "Успіх", "Дані заповнено з ID " & sId, False, 50, 120 
 End Sub
 
+' === Функція CheckCode =================================
+' =====================================================
+' → Перевіряє статус коду події у рядку таблиці та блокує обробку, якщо він заборонений.
+' → Повертає False — якщо код дорівнює одному з небажаних значень: 0, 7, 28, 30, 70.
+' → Виводить відповідне повідомлення з уточненням причини (чорний список, баланс, інкасація тощо).
+' → Повертає True — якщо код допустимий для подальшої обробки.
 Function CheckCode(sAddTitle As String, sHalfMsg As String, lValueS As Long) As Boolean
     CheckCode = True
     
@@ -1216,6 +1197,12 @@ Function CheckCode(sAddTitle As String, sHalfMsg As String, lValueS As Long) As 
     End Select
 End Function 
 
+' =====================================================
+' === Функція Obfuscate ================================
+' =====================================================
+' → Виконує просте XOR-шифрування рядка з ключем &HAA.
+' → Кожен символ перетворюється в 2-символьне hex-представлення.
+' → Повертає шифрований рядок у шістнадцятковому форматі.
 Function Obfuscate(s As String) As String
     Dim i As Integer, res As String
     For i = 1 To Len(s)
@@ -1224,6 +1211,12 @@ Function Obfuscate(s As String) As String
     Obfuscate = res
 End Function
 
+' =====================================================
+' === Функція Deobfuscate ==============================
+' =====================================================
+' → Дешифрує hex-рядок, отриманий через Obfuscate.
+' → Кожні 2 hex-символи конвертує назад у символ із XOR-дешифрацією (&HAA).
+' → Повертає оригінальний текст.
 Function Deobfuscate(hexString As String) As String
     Dim i As Integer, s As String
     For i = 1 To Len(hexString) Step 2
@@ -1232,7 +1225,17 @@ Function Deobfuscate(hexString As String) As String
     Deobfuscate = s
 End Function
 
-Sub tObf ()
- 'MsgDlg "Test Pass", Obfuscate(), False, 50 
- 'MsgDlg "Test Pass", Deobfuscate(), False, 50
-End Sub
+' Sub tObf ()
+  'MsgDlg "Test Pass", Obfuscate(), False, 50 
+  'MsgDlg "Test Pass", Deobfuscate(), False, 50
+' End Sub
+
+' =====================================================
+' === Функція IsCancelCode =============================
+' =====================================================
+' → Перевіряє, чи є код скасуванням (тобто один із: 20, 21, 22, 23).
+' → Повертає True — якщо код входить до списку, інакше False.
+' → Зручний спосіб перевірки без Select Case або масиву.
+Function IsCancelCode(nCode As Long) As Boolean
+    IsCancelCode = InStr(" 20 21 22 23 ", " " & nCode & " ") > 0
+End Function
