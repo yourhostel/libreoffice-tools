@@ -5,8 +5,6 @@
 Dim FormResult As Boolean
 
 Sub StartCreate()
-    ' False - не шукає першу порожню комірку по стовпцю А. (SelectFirstEmptyInA)
-    ResetFilterlimited 
     ShowForm(ACTION_CREATE)
 End Sub
 
@@ -16,7 +14,16 @@ End Sub
 ' → Запускає діалог введення нового запису.
 ' → Відображає форму, підключає слухачі, перевіряє введені дані та вставляє їх у таблицю.
 ' → Повертає рядок: "OK" — якщо дані збережені, "Cancel" — якщо відмінено.
-Sub ShowForm(sAction As String) As String
+Sub ShowForm(sAction As String, Optional bEditMngr As Boolean) As String
+
+    If IsMissing(bEditMngr) Then
+        bEditMngr = False
+    End If
+
+    If sAction = ACTION_CREATE Then 
+        ResetFilterlimited
+    End If
+    
     Dim oDialog           As Object  
     Dim oButtonInsert     As Object
     Dim oListenerInsert   As Object
@@ -27,7 +34,7 @@ Sub ShowForm(sAction As String) As String
     Dim sResult         As String
     
     FormResult = False 
-    oDialog = CreateDialog(sAction)
+    oDialog = CreateDialog(sAction, bEditMngr)
     
     AddCheckInDataListener(oDialog, sAction)
     AddDurationComboListeners(oDialog)    
@@ -72,6 +79,10 @@ Sub ShowForm(sAction As String) As String
     ' ShowForm = sResult
 End Sub
 
+' === Процедура DataByIdButton_actionPerformed =========
+' =====================================================
+' → Обробляє подію натискання кнопки пошуку за ID.
+' → Викликає процедуру заповнення персональних даних за введеним ID.
 Sub DataByIdButton_actionPerformed(oEvent As Object)
     PersonalDataById oEvent
 End Sub
@@ -105,26 +116,30 @@ Sub InsertButton_actionPerformed(oEvent As Object)
 
     ' якщо редагування — одразу пишемо історію
     If sAction = ACTION_EDIT Then
-        If Not AppendHistory(oSel.RangeAddress.StartRow) Then 
+        If Not AppendHistory(oSel.RangeAddress.StartRow, oDialog) Then 
             Exit Sub
         End If    
     End If
   	   
-    OffsetReasonInsertion(oSel, oDialog)	' Q, P      причина зсуву зсув
-    DateRangeInsertion(oSel, oDialog)	    ' A, E, O   заселення, виселення, створено
-    CodeInsertion(oSel, oDialog)            ' D         код
-    PersonDataInsertion(oSel, oDialog)      ' B, C      прізвище, ім'я по батькові
-    PaidInsertion(oSel, oDialog)            ' F         сплачено
-    FinanceInsertion(oSel, oDialog)         ' G, H, I   видаток, прихід, коментар
-    PhoneInsertion(oSel, oDialog)           ' J         телефон
-    PassportBirthInsertion(oSel, oDialog)   ' K, L      паспортні дані, дата народження
-    HostelInsertion(oSel)                   ' N         хостел
-    PlaceInsertion(oSel, oDialog)           ' R         місце
-    AdminInsertion(oSel, sAction)
+    OffsetReasonInsertion(oSel, oDialog)	   ' Q, P      причина зсуву зсув
+    DateRangeInsertion(oSel, oDialog, sAction) ' A, E, O   заселення, виселення, створено
+    CodeInsertion(oSel, oDialog)               ' D         код
+    PersonDataInsertion(oSel, oDialog)         ' B, C      прізвище, ім'я по батькові
+    PaidInsertion(oSel, oDialog)               ' F         сплачено
+    FinanceInsertion(oSel, oDialog)            ' G, H, I   видаток, прихід, коментар
+    PhoneInsertion(oSel, oDialog)              ' J         телефон
+    PassportBirthInsertion(oSel, oDialog)      ' K, L      паспортні дані, дата народження
+    HostelInsertion(oSel)                      ' N         хостел
+    PlaceInsertion(oSel, oDialog)              ' R         місце
+    AdminInsertion(oSel, oDialog, sAction)     ' U         адмін
     		
     FormResult = True   ' Ставимо True тільки якщо валідація пройшла та вставка відпрацювала коректно 
            
     oDialog.endExecute()
+    
+    If sAction = ACTION_EDIT Then 
+        ResetFilterlimited
+    End If
 End Sub
 
 ' =====================================================
@@ -135,6 +150,12 @@ End Sub
 Sub InsertButton_disposing(oEvent As Object)
 End Sub
 
+' === Функція CheckInDateValidation =====================
+' =====================================================
+' → Перевіряє коректність дати заселення, вибраної у календарному полі.
+' → Повертає True — якщо формат дати валідний, False — якщо ні.
+' → Якщо поле порожнє ("Немає" у календарі), дата ініціалізується через IniUtilDate.
+' → Формат має відповідати шаблону: dd.mm.yyyy
 Function CheckInDateValidation(oDialog As Object) As Boolean
     Dim oD    As Object
     Dim d     As String
@@ -213,9 +234,11 @@ End Sub
 ' =====================================================
 ' === Процедура DateRangeInsertion ====================
 ' =====================================================
-' → Вставляє дати заселення, виселення та створення у таблицю.
-' → Форматує дати у вигляді "DD.MM.YYYY" та "DD.MM.YYYY HH:MM".
-Sub DateRangeInsertion(oSel As Object, oDialog As Object)
+' → Вставляє діапазон дат (Check-in / Check-out) у вибраний рядок таблиці.
+' → Записує дату заселення (A), виселення (E), створення з часом (O), термін (D), та ID (U).
+' → Якщо дата створення ≠ дата заселення — проставляє стиль "створено" та очищає поле причини (P).
+' → Динамічно знімає / відновлює захист листа, якщо він активний.
+Sub DateRangeInsertion(oSel As Object, oDialog As Object, sAction As String)
     Dim nOffset        As Integer
     Dim oCheckIn       As Object
     Dim dCheckOutDate  As Double
@@ -224,9 +247,14 @@ Sub DateRangeInsertion(oSel As Object, oDialog As Object)
     Dim oCursorAddress As Object
     Dim oCheckInCell   As Object
     Dim oCheckOutCell  As Object
+    Dim oTargetDate    As Object
     Dim oCreatedCell   As Object
+    Dim oReason        As Object
     Dim bWasProtected  As Boolean
-    Dim cI             As Object  
+    Dim sTarget        As String
+    Dim dTarget        As Date
+    Dim cI             As Object
+      
     ' ==== Читаємо значення Duration ====
     nDuration      = Val(oDialog.getControl("DurationCombo").getText())
     ' ==== Отримуємо таблицю і адресу ====
@@ -240,6 +268,11 @@ Sub DateRangeInsertion(oSel As Object, oDialog As Object)
     ' Якщо застосували у календар кнопку "Немає" порожнє поле
     cI = IniUtilDate(cI)
     
+    ' ==== Читаємо значення CurrentDate ==== 
+    oTargetDate    = oDialog.getControl("CurrentDateLabel")
+    sTarget        = oTargetDate.Text
+    dTarget        = UnformattingDate(sTarget, True)
+    
     ' ==== Вставка дати заселення в колонку A ====
     oCheckInCell   = oSheet.getCellByPosition(0, oCursorAddress.Row)
     oCheckInCell.setValue(DateSerial(cI.Year, cI.Month, cI.Day))                  ' A
@@ -247,10 +280,10 @@ Sub DateRangeInsertion(oSel As Object, oDialog As Object)
     ' ==== Вставка дати виселення в колонку E ====
     oCheckOutCell  = oSheet.getCellByPosition(4, oCursorAddress.Row)
     oCheckOutCell.setValue(Cdate(Format(dCheckOutDate, "DD.MM.YYYY")))            ' E
-
+    
     ' ==== Вставка дати створення з часом в колонку O ====
     oCreatedCell   = oSheet.getCellByPosition(14, oCursorAddress.Row)
-    oCreatedCell.setValue(Now)                                                    ' O
+    oCreatedCell.setValue(dTarget)                                                ' O
  
     ' ==== Вставка терміна в колонку Т ====
     oSheet.getCellByPosition(3, oSel.CellAddress.Row).setValue(Val(nDuration))    ' D
@@ -261,11 +294,19 @@ Sub DateRangeInsertion(oSel As Object, oDialog As Object)
     ' ==== Якщо є зсув — застосовуємо стиль "створено" ====
     bWasProtected = oSheet.IsProtected
     
+    ' ==== Якщо редагування, завершуємо ====
+    ' If sAction = ACTION_EDIT Then Exit Sub
+    
     ' ==== Якщо захищений — знімаємо захист ====
     If bWasProtected Then oSheet.unprotect(Deobfuscate(NEGET_RULES))
-    
-    If DateSerial(cI.Year, cI.Month, cI.Day) <> Int(Now) Then 
-        oCreatedCell.CellStyle = "створено" Else: oCreatedCell.CellStyle = "Типовий"
+
+    If DateSerial(cI.Year, cI.Month, cI.Day) <> Format(dTarget, "DD.MM.YYYY") Then 
+        oCreatedCell.CellStyle = "створено" 
+    Else
+        oCreatedCell.CellStyle = "Типовий"
+    ' ==== також видаляємо коментар причини зсуву ====
+        oReason = oSheet.getCellByPosition(15, oCursorAddress.Row)
+        oReason.setString("")
     End If
     
     ' ==== Повертаємо захист назад ====
@@ -664,23 +705,54 @@ Sub PlaceInsertion(oSel As Object, oDialog As Object)
     oSheet.getCellByPosition(16, oSel.CellAddress.Row).setValue(Val(sPlace)) ' R
 End Sub
 
-Sub AdminInsertion(oSel As Object, sAction As String)
-    Dim oDoc         As Object : oDoc         = ThisComponent
-    Dim oSheetData   As Object : oSheetData   = oDoc.Sheets.getByName("data")
-    Dim oSheetAdmins As Object : oSheetAdmins = oDoc.Sheets.getByName("admins")
-    Dim sAdmin       As String : sAdmin       = oSheetAdmins.getCellByPosition(3, 0).String
-    
+' === Процедура AdminInsertion ==========================
+' =====================================================
+' → Записує адміністратора в колонку "U" активного рядка таблиці "data".
+' → Дані про адміністратора беруться з клітинки D1 листа "admins".
+' → Виконується тільки при дії створення (sAction = ACTION_CREATE).
+Sub AdminInsertion(oSel As Object, oDialog As Object, sAction As String)
     If sAction = ACTION_CREATE Then
-        oSheetData.getCellByPosition(20, oSel.CellAddress.Row).SetString(sAdmin) ' admins D1          ' U
-    End If
+        Dim oSheet As Object : oSheet = oSel.Spreadsheet  
+        Dim sAdmin As String 
+        Dim aParts As Variant
+
+        ' ==== Отримуємо текст з мітки ====
+        aParts = Split(oDialog.getControl("AdminLabel").getText(), ":")
+    
+        If UBound(aParts) >= 1 Then
+            sAdmin = Trim(aParts(1))
+        Else
+            sAdmin = ""
+        End If  
+    
+        oSheet.getCellByPosition(20, oSel.CellAddress.Row).SetString(sAdmin) ' data ' U
+    End If    
 End Sub
+
+' =====================================================
+' === Функція GetAdmin ================================
+' =====================================================
+' → Повертає ім’я адміністратора з таблиці "admins".
+' → Джерело: клітинка D1 (позиція [3, 0]) листа "admins".
+' → Використовується для автоматичного підпису змін або записів.
+Function GetAdmin()
+    Dim oDoc         As Object : oDoc         = ThisComponent
+    Dim oSheetAdmins As Object : oSheetAdmins = oDoc.Sheets.getByName("admins")
+     
+    GetAdmin = oSheetAdmins.getCellByPosition(3, 0).String   
+End Function
 
 ' =====================================================
 ' === Функція CreateDialog ============================
 ' =====================================================
 ' → Створює та налаштовує діалогову форму введення нового запису.
 ' → Додає всі поля, мітки, кнопки, слухачі та повертає готовий діалог.
-Function CreateDialog(sAction As String) As Object
+Function CreateDialog(sAction As String, Optional bEditMngr As Boolean) As Object
+ 
+    If IsMissing(bEditMngr) Then
+        bEditMngr = False
+    End If
+    
     Dim oDialog        As Object
     Dim oDialogModel   As Object
     Dim mV             As Variant
@@ -695,14 +767,14 @@ Function CreateDialog(sAction As String) As Object
     oDialog = CreateUnoService("com.sun.star.awt.UnoControlDialog")
     oDialogModel = CreateUnoService("com.sun.star.awt.UnoControlDialogModel")  
     oDialog.setModel(oDialogModel)
-    mV = FormInitialization(sAction)
+    mV = FormInitialization(sAction, bEditMngr)
     
     ' ==== Параметри діалогу ====    
     With oDialogModel
         .PositionX = 100
         .PositionY = 100
         .Width = 340
-        .Height = 270
+        .Height = 275
         .Title = sTitle
     End With ' 
     
@@ -710,9 +782,9 @@ Function CreateDialog(sAction As String) As Object
     
     ' ==== Групова рамка ====
     Dim gX As Long, gY As Long, fY As Long, pY As Long
-    gX = 5 : gY = 5 : fY = gY + 70 : pY = fY + 70 
+    gX = 5 : gY = 10 : fY = gY + 70 : pY = fY + 70 
     '                                                                           X        Y    W     H                      WL   WF
-    
+    AddLabelFont(oDialogModel,     "Admin",                                    gx, gY -  7, 200,   15, MapGet(mV, "адмін"))     
     AddGroupBox(oDialogModel,      "GroupDate",                                gX,      gY, 255,   70, "Дата")
     AddLogo (oDialogModel ,        "logo",                               gx + 259, gY +  4,  71, 65.5)
     AddLabelFont(oDialogModel,     "CurrentDate",                        gx +   5, gY + 20,  50,   15, MapGet(mV, "створено"))                                                                      
@@ -751,7 +823,7 @@ Function CreateDialog(sAction As String) As Object
     End If 
       
     ' ==== Кнопка вставки ====    
-    AddButton(oDialogModel, "InsertButton", ChoiceButtonName(sAction), 140, 250, 60, 14)
+    AddButton(oDialogModel, "InsertButton", ChoiceButtonName(sAction), gx + 135, gY + 245, 60, 14)
     
     ' === Кнопка "Заповнити" по Id персональні дані ===
     AddButton(oDialogModel, "DataByIdButton", "Заповнити", gx + 278, pY + 50, 40, 14)
@@ -806,7 +878,8 @@ End Sub
 ' → Якщо `CREATE` — заповнює дефолтні значення (новий запис).
 ' → Якщо `EDIT` — зчитує існуючі дані з таблиці й обчислює зсув, тривалість тощо.
 ' → Повертає Map зі всіма полями для заповнення форми.
-Function FormInitialization(sAction As String) As Variant
+Function FormInitialization(sAction As String, bEditMngr As Boolean) As Variant
+    
     Dim dM           As Variant
     Dim fR           As Variant
     Dim sPrice       As String   ' ціна з аркуша
@@ -827,10 +900,22 @@ Function FormInitialization(sAction As String) As Variant
     Dim sPhone       As String   ' телефон
     Dim sBirth       As String   ' дата народження
     Dim sPass        As String   ' паспортні дані
+    Dim sEmployee    As String
 
     dM = CreateMap()
         
     sPrice = ThisComponent.Sheets.getByName("price1").getCellByPosition(1, 1).getValue()
+    
+    sEmployee = ""
+    
+    If bEditMngr = True Then
+        sEmployee = ThisComponent.Sheets.getByName("admins").getCellByPosition(10, 0).getString()
+    End If
+    
+    If bEditMngr = False Then
+        sEmployee = ThisComponent.Sheets.getByName("admins").getCellByPosition(3, 0).getString()
+    End If
+        
 
     If sAction = ACTION_CREATE Then
         sCurrentDate = DateValue(Now) & Chr(10) & String(5, " ") & Format(Now, "HH:MM")
@@ -851,7 +936,8 @@ Function FormInitialization(sAction As String) As Variant
         sPhone       = ""
         sBirth       = DateSerial(1999, 6, 15)
         sPass        = ""
-
+        sAdmin       = "Запис створює: " & sEmployee
+        
     ElseIf sAction = ACTION_EDIT Then 
         fR           = ReadFromTable()
         sCurrentDate = Format(CDate(MapGet(fR, "створено")), "DD.MM.YYYY HH:MM")
@@ -879,6 +965,7 @@ Function FormInitialization(sAction As String) As Variant
         sPhone       = MapGet(fR, "телефон")
         sBirth       = MapGet(fR, "дата народження")
         sPass        = MapGet(fR, "паспортні дані")
+        sAdmin       = "Запис редагує: " & sEmployee
     End If
 
     ' === записуємо в Map ===
@@ -899,7 +986,8 @@ Function FormInitialization(sAction As String) As Variant
     MapPut dM, "телефон",         sPhone
     MapPut dM, "дата народження", sBirth
     MapPut dM, "паспортні дані",  sPass
-
+    MapPut dM, "адмін",           sAdmin
+    
     FormInitialization = dM
 End Function
 
