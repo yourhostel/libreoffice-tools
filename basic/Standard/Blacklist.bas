@@ -45,13 +45,14 @@ Sub BlacklistStart()
     If bWasProtected Then oSheet.unprotect(Deobfuscate(NEGET_RULES))
     
     ' отримуємо діапазон записів
-    Set oRange = GetRecordsRange()
+    oRange    = GetRecordsRange()
     nFirstRow = oRange.RangeAddress.StartRow
     nLastRow  = oRange.RangeAddress.EndRow
     
     ' Застосовуємо фільтр якщо вибрано назву шапки 
     If Trim(oSel.getString()) = "чорний список" And nFirstRow - 1 = 2 Then
-        ToggleBlacklistFilter()      
+        ResetFilter(False)
+        FilterBlacklist()      
         GoTo Cleanup
     End If
     
@@ -96,16 +97,25 @@ Cleanup:
     End If
 End Sub
 
+' =====================================================
+' === Процедура ShowBlacklistInstructions =============
+' =====================================================
+' → Виводить інструкцію користувачу щодо роботи з чорним списком.
+' → Містить покрокові підказки:
+'     1. Вибір однієї клітинки.
+'     2. Додавання запису до ч/с.
+'     3. Застосування/скидання фільтру через клітинку M3.
 Sub ShowBlacklistInstructions()
     Dim sMsg As String
     sMsg = "1. Виберіть лише одну клітинку!" & Chr(10) & _
            Chr(10) & _
-           "2. Для скасування оберіть рядок чорного списку (чорні рядки)." & Chr(10) & _
-           Chr(10) & _
            "3. Для додавання до ч/с оберіть рядок з людиною." & Chr(10) & _
            Chr(10) & _
-           "4. Щоб застосувати/скинути фільтр — оберіть клітинку M3."
-    MsgDlg "Інструкція", sMsg, False, 105
+           "4. Щоб застосувати фільтр — оберіть клітинку M3." & Chr(10) & _
+           "(чорний список у шапці таблиці)" & Chr(10) & _
+           Chr(10) & _
+           "5. Прибрати фільтр можна основною кнопкою 'Скинути' ""Скин."""           
+    MsgDlg "Інструкція", sMsg, False, 115
 End Sub
 
 ' =====================================================
@@ -179,6 +189,8 @@ Sub AddToBlacklist(oSel As Object)
     oSheet.getCellByPosition(12, nRow).setString(FormatBlacklist(nCode, sComment))
     oSheet.getCellByPosition(18, nRow).setValue(28)
     
+    ResetFilterlimited
+    
     MsgDlg "Додано", sSurname & " " & sPatronymic & " додано до чорного списку", False, 50
 End Sub
 
@@ -241,7 +253,9 @@ Function RemoveFromBlacklist(oSheet As Object, nRow As Long) As Boolean
     MsgDlg "Видалено", oSurnameCell.getString() & " " & oPatronymic.getString() & " видалено із чорного списку."  & Chr(10) & _
     "" & Chr(10) & _
     "Код(" & nParsedCode & ") прайсу в колонку «код» повернуто успішно.", False, 65
-
+    
+    ResetFilterlimited
+    
     RemoveFromBlacklist = True
 End Function
 
@@ -275,45 +289,5 @@ Sub FilterBlacklist()
     oRange.filter(oFilterDesc)
 
     MsgDlg "Фільтр застосовано", "Показано лише рядки з чорним списком", False, 50
-End Sub
-
-' =====================================================
-' === Sub ToggleBlacklistFilter =======================
-' =====================================================
-' → Перевіряє, чи вже застосовано фільтр (є приховані рядки).
-' → Якщо так — скидає фільтр (через ResetFilter).
-' → Якщо ні — викликає FilterBlacklist.
-' → Виводить повідомлення, що фільтр увімкнено або вимкнено.
-Sub ToggleBlacklistFilter()
-    Dim oRange    As Object
-    Dim oSheet    As Object
-    Dim oDesc     As Object
-    Dim nFirstRow As Long
-    Dim nLastRow  As Long
-    Dim hasFilter As Boolean
-
-    Set oRange = GetRecordsRange()
-    Set oDesc = oRange.createFilterDescriptor(False)
-
-    ' фактична перевірка: чи в діапазоні приховано хоч один рядок
-    hasFilter = False
-    nFirstRow = oRange.RangeAddress.StartRow
-    nLastRow  = oRange.RangeAddress.EndRow
-    oSheet = ThisComponent.CurrentController.ActiveSheet
-
-    Dim i As Long
-    For i = nFirstRow To nLastRow
-        If oSheet.Rows.getByIndex(i).IsVisible = False Then
-            hasFilter = True
-            Exit For
-        End If
-    Next i
-
-    If hasFilter Then
-        ResetFilterlimited
-        MsgDlg "Фільтр", "Фільтр скасовано", False, 50
-    Else
-        FilterBlacklist()
-    End If
 End Sub
 
