@@ -121,7 +121,7 @@ Sub InsertEncashment(nTotalEncash As Double)
     oSheet.getCellByPosition(5, lRowNumber).setValue(nTotalEncash)
     
     oSheetAdm = oDocument.Sheets.getByName("admins")
-    sAdmin    = oSheetAdm.getCellByPosition(4, 0).getString    ' E1 admins
+    sAdmin    = oSheetAdm.getCellByPosition(10, 0).getString   ' K1 admins
     oSheet.getCellByPosition(20, lRowNumber).setString(sAdmin) ' U  data 
 
     MsgDlg "Інкасація виконана", "Сума інкасації: " & nTotalEncash, False, 50, 140
@@ -331,6 +331,14 @@ Function FormatFinLine(sType As String, _
     FormatFinLine = sLine
 End Function
 
+' === Функція ValidationFinData =========================
+' =====================================================
+' → Перевіряє валідність фінансових даних з масиву: сума + коментар.
+' → Очікує:
+'     aRes(0) — сума (має бути > 0)
+'     aRes(1) — коментар (мінімум 3 символи)
+' → Повертає True — якщо обидві перевірки пройдені, False — якщо ні.
+' → У разі помилки виводить повідомлення й завершує перевірку.
 Function ValidationFinData(aRes As Variant) As boolean
     Dim amount As Double, comment As String
     
@@ -370,33 +378,35 @@ Function ShowFinDialog() As Variant
 
     ' ==== Налаштування діалогу ====
     With oDlgModel
-        .Title = "Фінансовий запис"
-        .Width = 220
-        .Height = 120
+        .Title     = "Фінансовий запис"
+        .Width     = 200
+        .Height    = 105
         .PositionX = 100
         .PositionY = 100
     End With
     
     AddBackground(oDlgModel, BACKGROUND)
 
-    ' ==== Поле для суми ====
-    FieldTemplate       oDlgModel, "Amount", "Сума:", 10, 20, "", 40, 50
-
-    ' ==== Поле для коментаря ====
-    FieldTemplate       oDlgModel, "Comment", "Коментар:", 10, 55, "", 50, 150
-
-    ' ==== Радіокнопки Видаток/Прихід ====
-    OptionGroupTemplate oDlgModel, "FinType", "Видаток", "Прихід", 120, 20, 40, True
-
-    ' ==== Кнопка ОК ====
-    AddButton           oDlgModel, "OkButton", "Додати", 85, 90, 50, 14, 1
+    ' ==== Групова рамка ====
+    Dim gX As Long, gY As Long
+    gX = 5 : gY = 20
+    '                                                                      X        Y
+    AddLabelFont        oDlgModel, "Admin",                               gx, gY - 15, 160, 15, "Запис створює: " & GetAdmin()
+    FieldTemplate       oDlgModel, "Amount",   "Сума:",             gx +   5, gY +  5,   0, 40, 50
+    AddGroupBox         oDlgModel, "GroupType",                     gX +  85, gY -  5, 100, 40, "Оберіть правильний тип!"   
+    OptionGroupTemplate oDlgModel, "FinType",  "Видаток", "Прихід", gx + 100, gY + 15,  40, True    
+    FieldTemplate       oDlgModel, "Comment",  "Коментар:",         gx +   5, gY + 45,  "", 50, 180
+    AddButton           oDlgModel, "OkButton", "Додати",            gx +  70, gY + 65,  50, 14, 1
 
     ' ==== Показуємо діалог ====
     oDlg.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
     If oDlg.execute() = 1 Then
+    
         Dim amount As String, comment As String, ftype As String
+        
         amount = Trim(oDlg.getControl("AmountField").getModel().Text)
         comment = Trim(oDlg.getControl("CommentField").getModel().Text)
+        
         If oDlg.getControl("FinTypeLeft").State Then
             ftype = "видаток"
         ElseIf oDlg.getControl("FinTypeRight").State Then
@@ -404,6 +414,7 @@ Function ShowFinDialog() As Variant
         Else
             ftype = "?"
         End If
+        
         result = Array(amount, comment, ftype)
     Else
         result = Nothing
