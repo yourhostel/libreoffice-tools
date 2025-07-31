@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-ODS="$HOME/Scripts/libreoffice-tools/temp/saperka.ods"
-# DST="$HOME/.config/libreoffice/4/user/basic/Standard"
-DST="$HOME/Scripts/libreoffice-tools/basic/Standard"
+ODS="$HOME/Scripts/libreoffice-tools/temp/saperka_dev.ods"
+DST="$HOME/.config/libreoffice/4/user/basic/Standard"
+# DST="$HOME/Scripts/libreoffice-tools/basic/Standard"
 
 TMP="$(mktemp -d)"
 

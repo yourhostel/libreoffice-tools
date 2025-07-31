@@ -14,12 +14,48 @@
 
 ![2025-07-30 12-58-40.png](screenshots/2025-07-30%2012-58-40.png)
 
+`deploy.sh` Скрипт розпаковує таблицю, що містить локальні модулі і поміщає ці модулі для використання глобально в стандартну папку $HOME/.config/libreoffice/4/user/basic/Standard. Дана процедура дозволяє правильно перетворити написані текстові файли, які зазвичай подаються як .bas, у формат зрозумілий libreoffice - формат .xba. Можна написати парсер, але треба враховувати крім валідної шапки XML символи, що потребують екранування:
+
+| Символ | Назва          | Екранована форма |
+| ------ | -------------- | ---------------- |
+| `'`    | апостроф       | `&apos;`         |
+| `"`    | подвійна лапка | `&quot;`         |
+| `&`    | амперсанд      | `&amp;`          |
+| `<`    | менше          | `&lt;`           |
+| `>`    | більше         | `&gt;`           |
+
+#### Приклад:
+- `.bas`
+```
+' =====================================================
+' === Функція IsCancelCode =============================
+' =====================================================
+Function IsCancelCode(nCode As Long) As Boolean
+    IsCancelCode = InStr(" 20 21 22 23 ", " " & nCode & " ") > 0
+End Function
+```
+
+- `.xba`
+```
+&apos; =====================================================
+&apos; === Функція IsCancelCode =============================
+&apos; =====================================================
+Function IsCancelCode(nCode As Long) As Boolean
+    IsCancelCode = InStr(&quot; 20 21 22 23 &quot;, &quot; &quot; &amp; nCode &amp; &quot; &quot;) &gt; 0
+End Function
+```
+- Для встановлення потрібно у файлі `deploy.sh` визначити змінну `ODS`, посилання на таблицю контейнера модулів. Виконати скрипт:
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
 # Python
 ```bash
 # Перевстановити з пайтон провайдером якщо потрібно
 Перевстановити з пайтон провайдером якщо потрібно
 sudo snap remove libreoffice
-sudo apt remove --purge libreoffice*
+sudo apt rem[screenshots](screenshots)ove --purge libreoffice*
 sudo add-apt-repository ppa:libreoffice/ppa
 sudo apt update
 sudo apt install libreoffice libreoffice-script-provider-python
