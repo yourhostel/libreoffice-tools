@@ -1184,6 +1184,12 @@ Function CheckCode(sAddTitle As String, sHalfMsg As String, lValueS As Long) As 
     End Select
 End Function 
 
+' =====================================================
+' === Функція Obfuscate ================================
+' =====================================================
+' → Виконує просте XOR-шифрування рядка з ключем &HAA.
+' → Кожен символ перетворюється в 2-символьне hex-представлення.
+' → Повертає шифрований рядок у шістнадцятковому форматі.
 Function Obfuscate(s As String) As String
     Dim i As Integer, res As String
     For i = 1 To Len(s)
@@ -1192,6 +1198,12 @@ Function Obfuscate(s As String) As String
     Obfuscate = res
 End Function
 
+' =====================================================
+' === Функція Deobfuscate ==============================
+' =====================================================
+' → Дешифрує hex-рядок, отриманий через Obfuscate.
+' → Кожні 2 hex-символи конвертує назад у символ із XOR-дешифрацією (&HAA).
+' → Повертає оригінальний текст.
 Function Deobfuscate(hexString As String) As String
     Dim i As Integer, s As String
     For i = 1 To Len(hexString) Step 2
@@ -1200,7 +1212,17 @@ Function Deobfuscate(hexString As String) As String
     Deobfuscate = s
 End Function
 
-Sub tObf ()
- MsgDlg "Test Pass", Obfuscate("#5t8N"), False, 50 
- 'MsgDlg "Test Pass", Deobfuscate(), False, 50
-End Sub
+' Sub tObf ()
+  'MsgDlg "Test Pass", Obfuscate(), False, 50 
+  'MsgDlg "Test Pass", Deobfuscate(), False, 50
+' End Sub
+
+' =====================================================
+' === Функція IsCancelCode =============================
+' =====================================================
+' → Перевіряє, чи є код скасуванням (тобто один із: 20, 21, 22, 23).
+' → Повертає True — якщо код входить до списку, інакше False.
+' → Зручний спосіб перевірки без Select Case або масиву.
+Function IsCancelCode(nCode As Long) As Boolean
+    IsCancelCode = InStr(" 20 21 22 23 ", " " & nCode & " ") > 0
+End Function
