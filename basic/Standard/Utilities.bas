@@ -42,22 +42,17 @@ Sub LockFields(oEvent As Object, sFieldNames As String)
 End Sub
 
 ' =====================================================
-' ================ Структура Map ======================
+' =================== Структура Map ===================
 ' =====================================================
-' ==== Простий аналог Map/Dictionary для LibreOffice ==
-' ==== Реалізовано на базі масиву пар Key-Value =======
+' ==== Простий аналог Map/Dictionary ==================
+' ==== Реалізовано як масив пар Array(Key, Value) =====
 ' =====================================================
-
-' ==== Оголошення структури Key-Value =====
-Type KeyValuePair
-    Key As String
-    Value As String
-End Type
 
 ' =====================================================
 ' === Функція CreateMap ===============================
 ' =====================================================
-' → Створює пусту мапу (масив пар Key-Value).
+' → Створює порожню мапу (масив пар).
+' → Кожен елемент: Array(Key As String, Value As String)
 ' → Повертає Variant-масив.
 Function CreateMap() As Variant
     CreateMap = Array()
@@ -66,27 +61,26 @@ End Function
 ' =====================================================
 ' === Процедура MapPut ================================
 ' =====================================================
-' → Додає пару (Key, Value) в мапу.
-' → Якщо ключ існує — оновлює його значення.
-' → Якщо ключа нема — додає новий.
+' → Додає або оновлює пару (Key, Value) в мапі.
+' → Якщо ключ уже існує — оновлює його значення.
+' → Якщо ключ відсутній — додає нову пару.
 Sub MapPut(ByRef Map As Variant, ByVal Key As String, ByVal Value As String)
-    Dim i As Integer
+    Dim i As Long
     For i = LBound(Map) To UBound(Map)
-        If Map(i).Key = Key Then
-            Map(i).Value = Value
+        If Map(i)(0) = Key Then
+            Map(i)(1) = Value
             Exit Sub
         End If
     Next i
 
-    ' Додаємо новий ключ
-    Dim NewPair As KeyValuePair
-    NewPair.Key = Key
-    NewPair.Value = Value
+    Dim newEntry(1) As Variant
+    newEntry(0) = Key
+    newEntry(1) = Value
 
     If IsEmpty(Map) Then
-        Map = Array(NewPair)
+        Map = Array(newEntry)
     Else
-        Map = AppendArray(Map, NewPair)
+        Map = AppendArray(Map, newEntry)
     End If
 End Sub
 
@@ -94,28 +88,28 @@ End Sub
 ' === Функція MapGet ==================================
 ' =====================================================
 ' → Повертає значення за ключем.
-' → Якщо ключ не знайдено — повертає порожній рядок "".
+' → Якщо ключ не знайдено — повертає "" (порожній рядок).
 Function MapGet(ByVal Map As Variant, ByVal Key As String) As String
-    Dim i As Integer
+    Dim i As Long
     For i = LBound(Map) To UBound(Map)
-        If Map(i).Key = Key Then
-            MapGet = Map(i).Value
+        If Map(i)(0) = Key Then
+            MapGet = Map(i)(1)
             Exit Function
         End If
     Next i
-    MapGet = "" ' Якщо не знайдено
+    MapGet = ""
 End Function
 
 ' =====================================================
 ' === Функція MapHasKey ===============================
 ' =====================================================
-' → Перевіряє наявність ключа в мапі.
-' → Повертає True — якщо ключ є.
-' → Повертає False — якщо ключа нема.
+' → Перевіряє, чи є ключ у мапі.
+' → Повертає True — якщо ключ знайдено.
+' → Повертає False — якщо ключ відсутній.
 Function MapHasKey(ByVal Map As Variant, ByVal Key As String) As Boolean
-    Dim i As Integer
+    Dim i As Long
     For i = LBound(Map) To UBound(Map)
-        If Map(i).Key = Key Then
+        If Map(i)(0) = Key Then
             MapHasKey = True
             Exit Function
         End If
@@ -126,28 +120,21 @@ End Function
 ' =====================================================
 ' === Функція MapGetByIndex ===========================
 ' =====================================================
-' → Повертає пару Key і Value за індексом.
-' → Повертає Variant(0)=Key, Variant(1)=Value.
-' → Якщо індекс невалідний — повертає ("","").
-Function MapGetByIndex(ByVal Map As Variant, ByVal Index As Integer) As Variant
-    Dim result(1) As String
-
+' → Повертає пару Array(Key, Value) за індексом.
+' → Якщо індекс поза межами — повертає Array("", "").
+Function MapGetByIndex(ByVal Map As Variant, ByVal Index As Long) As Variant
     If Index >= LBound(Map) And Index <= UBound(Map) Then
-        result(0) = Map(Index).Key
-        result(1) = Map(Index).Value
+        MapGetByIndex = Map(Index)
     Else
-        result(0) = ""
-        result(1) = ""
+        MapGetByIndex = Array("", "")
     End If
-
-    MapGetByIndex = result
 End Function
 
 ' =====================================================
 ' === Функція AppendArray =============================
 ' =====================================================
-' → Внутрішня допоміжна функція.
-' → Додає новий елемент до масиву.
+' → Допоміжна функція.
+' → Додає елемент `item` до кінця масиву `arr`.
 Function AppendArray(arr As Variant, item As Variant) As Variant
     Dim l As Long
     l = -1
@@ -155,20 +142,20 @@ Function AppendArray(arr As Variant, item As Variant) As Variant
     l = UBound(arr) + 1
     On Error GoTo 0
 
-    If l = 0 And IsEmpty(arr) Then
-        AppendArray = Array(item)
-    Else
-        Dim temp() As Variant
-        ReDim temp(0 To l)
-        Dim i As Integer
-        For i = 0 To l - 1
-            temp(i) = arr(i)
-        Next i
-        temp(l) = item
-        AppendArray = temp
-    End If
+    Dim temp() As Variant
+    ReDim temp(0 To l)
+    Dim i As Long
+    For i = 0 To l - 1
+        temp(i) = arr(i)
+    Next i
+    temp(l) = item
+    AppendArray = temp
 End Function
 
+' =====================================================
+' === Процедура MapClear ==============================
+' =====================================================
+' → Очищає мапу (скидає до порожнього масиву).
 Sub MapClear(ByRef Map As Variant)
     Map = CreateMap()
 End Sub
@@ -1197,12 +1184,6 @@ Function CheckCode(sAddTitle As String, sHalfMsg As String, lValueS As Long) As 
     End Select
 End Function 
 
-' =====================================================
-' === Функція Obfuscate ================================
-' =====================================================
-' → Виконує просте XOR-шифрування рядка з ключем &HAA.
-' → Кожен символ перетворюється в 2-символьне hex-представлення.
-' → Повертає шифрований рядок у шістнадцятковому форматі.
 Function Obfuscate(s As String) As String
     Dim i As Integer, res As String
     For i = 1 To Len(s)
@@ -1211,12 +1192,6 @@ Function Obfuscate(s As String) As String
     Obfuscate = res
 End Function
 
-' =====================================================
-' === Функція Deobfuscate ==============================
-' =====================================================
-' → Дешифрує hex-рядок, отриманий через Obfuscate.
-' → Кожні 2 hex-символи конвертує назад у символ із XOR-дешифрацією (&HAA).
-' → Повертає оригінальний текст.
 Function Deobfuscate(hexString As String) As String
     Dim i As Integer, s As String
     For i = 1 To Len(hexString) Step 2
@@ -1225,17 +1200,7 @@ Function Deobfuscate(hexString As String) As String
     Deobfuscate = s
 End Function
 
-' Sub tObf ()
-  'MsgDlg "Test Pass", Obfuscate(), False, 50 
-  'MsgDlg "Test Pass", Deobfuscate(), False, 50
-' End Sub
-
-' =====================================================
-' === Функція IsCancelCode =============================
-' =====================================================
-' → Перевіряє, чи є код скасуванням (тобто один із: 20, 21, 22, 23).
-' → Повертає True — якщо код входить до списку, інакше False.
-' → Зручний спосіб перевірки без Select Case або масиву.
-Function IsCancelCode(nCode As Long) As Boolean
-    IsCancelCode = InStr(" 20 21 22 23 ", " " & nCode & " ") > 0
-End Function
+Sub tObf ()
+ MsgDlg "Test Pass", Obfuscate("#5t8N"), False, 50 
+ 'MsgDlg "Test Pass", Deobfuscate(), False, 50
+End Sub
