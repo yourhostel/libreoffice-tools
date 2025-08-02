@@ -3,6 +3,79 @@
 ' Events.bas
 
 ' =====================================================
+' === Процедура AddDropdownToCombo ====================
+' =====================================================
+' → Підключає до ComboBox три слухачі:
+'     • XItemListener   — для зміни елемента
+'     • XMouseListener  — для реагування на кліки
+'     • XTextListener   — для зміни тексту вручну
+' → Зберігає назву елемента в .Tag для подальшого використання.
+Sub AddDropdownToCombo(oDialog As Object, sControlName As String)
+    Dim oCombo         As Object
+    Dim oItemListener  As Object
+    Dim oMouseListener As Object
+    
+    oCombo = oDialog.getControl(sControlName)
+    oCombo.Model.Tag = sControlName
+    
+    oItemListener   = CreateUnoListener("DropdownShared_", "com.sun.star.awt.XItemListener")
+    oMouseListener  = CreateUnoListener("DropdownShared_", "com.sun.star.awt.XMouseListener")
+    oTextListener   = CreateUnoListener("DropdownShared_", "com.sun.star.awt.XTextListener") 
+
+    oCombo.addItemListener(oItemListener)
+    oCombo.addMouseListener(oMouseListener)
+    oCombo.addTextListener(oTextListener)
+End Sub
+
+' =====================================================
+' === Процедура DropdownShared_textChanged =============
+' =====================================================
+' → Реагує на зміну тексту у ComboBox.
+' → Викликає AddComboReadonlyEnforcer із захистом від рекурсії через флаг isHandlingComboTextChange.
+Global isHandlingComboTextChange As Boolean
+Sub DropdownShared_textChanged(oEvent)
+    If isHandlingComboTextChange Then Exit Sub
+    isHandlingComboTextChange = True    
+        AddComboReadonlyEnforcer(oEvent)
+    isHandlingComboTextChange = False
+End Sub
+
+' =====================================================
+' === Процедура DropdownShared_mousePressed ============
+' =====================================================
+' → Спрацьовує при натисканні на ComboBox.
+' → Збільшує висоту елемента (наприклад, до 45), щоб імітувати розкритий список.
+Sub DropdownShared_mousePressed(oEvent)
+    DropdownToCombo(oEvent, 50)
+End Sub
+
+' =====================================================
+' === Процедура DropdownShared_itemStateChanged ========
+' =====================================================
+' → Спрацьовує при виборі нового елемента у ComboBox.
+' → Зменшує висоту поля назад до стандартної (наприклад, 15).
+Sub DropdownShared_itemStateChanged(oEvent)
+    DropdownToCombo(oEvent, 15)
+End Sub
+
+' =====================================================
+' === Порожні методи-обгортки XMouseListener ===========
+' =====================================================
+' → Реалізовані як no-op: mouseReleased, mouseEntered, mouseExited, disposing.
+' → Не виконують дій, але потрібні для повної реалізації інтерфейсу.
+Sub DropdownShared_mouseReleased(oEvent)
+End Sub
+
+Sub DropdownShared_mouseEntered(oEvent)
+End Sub
+
+Sub DropdownShared_mouseExited(oEvent)
+End Sub
+
+Sub DropdownShared_disposing(oEvent)
+End Sub
+
+' =====================================================
 ' === Процедура AddTextFieldsOffsetListener ===========
 ' =====================================================
 ' → Додає слухача змін у полі OffsetField.

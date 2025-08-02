@@ -1038,6 +1038,48 @@ Sub OffsetCommentSwitch(oDialog    As Object, _
 End Sub
 
 ' =====================================================
+' === Процедура DropdownToCombo ========================
+' =====================================================
+' → Змінює висоту ComboBox (наприклад, для розгортання випадаючого списку).
+' → Використовується під час натискання/відпускання миші або вибору елемента.
+Sub DropdownToCombo(oEvent As Object, nHeight As Long)
+    Dim sName    As String : sName    = oEvent.Source.Model.Tag
+    Dim oDialog  As Object : oDialog  = oEvent.Source.getContext()
+    Dim oControl As Object : oControl = oDialog.getControl(sName)
+    
+    If oControl.Model.Height <> nHeight Then
+        oControl.Model.Height = nHeight
+    End If
+End Sub
+
+' =====================================================
+' === Процедура AddComboReadonlyEnforcer ==============
+' =====================================================
+' → Примусово повертає значення ComboBox до першого елемента,
+'     якщо введене вручну значення не входить до списку.
+' → Забезпечує поведінку тільки-вибору ("readonly combo").
+Sub AddComboReadonlyEnforcer(oEvent As Object)
+    Dim oDialog  As Object  : oDialog  = oEvent.Source.getContext()
+    Dim oControl As Object  : oControl = oDialog.getControl(oEvent.Source.Model.Tag)
+    Dim sText    As String  : sText    = oControl.Text
+    Dim aItems   As Variant : aItems   = oControl.Model.getPropertyValue("StringItemList")
+    Dim i As Integer, found As Boolean
+
+    If Not IsArray(aItems) Or IsEmpty(aItems) Then Exit Sub
+    
+    For i = LBound(aItems) To UBound(aItems)
+        If Trim(aItems(i)) = Trim(sText) Then
+            found = True
+            Exit For
+        End If
+    Next i
+
+    If Not found And UBound(aItems) >= 0 Then
+        oControl.Text = aItems(0) ' вставляє перший зі списку
+    End If
+End Sub
+
+' =====================================================
 ' === Функція UnformattingDate ========================
 ' =====================================================
 ' → Виділяє тільки дату з рядка, що містить дату й час.

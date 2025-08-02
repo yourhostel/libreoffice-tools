@@ -118,17 +118,122 @@ Sub ComboBoxTemplate(oDialogModel As Object, _
 
     ' ==== ComboBox ====
     Dim oCombo As Object
-    oCombo = oDialogModel.createInstance("com.sun.star.awt.UnoControlComboBoxModel")
-    oCombo.Name = NamePrefix & "Combo"
-    oCombo.PositionX = PositionX
-    oCombo.PositionY = PositionY
-    oCombo.Width = WidthCombo
-    oCombo.Height = 15
-    oCombo.Text = vText
-    oCombo.Dropdown = True
+    oCombo           = oDialogModel.createInstance("com.sun.star.awt.UnoControlComboBoxModel")
+    oCombo.Name           = NamePrefix & "Combo"
+    oCombo.PositionX      = PositionX
+    oCombo.PositionY      = PositionY
+    oCombo.Width          = WidthCombo
+    oCombo.Height         = 15
+    oCombo.Text           = vText
     oCombo.StringItemList = Split(ListOfPlaces, ";")
-    ' MsgBox oCombo.Name
+    ' MsgBox "ComboBoxTemplate -   " & oCombo.Name
     oDialogModel.insertByName(oCombo.Name, oCombo)
+End Sub
+
+' =====================================================
+' === Процедура ListBoxTemplate ========================
+' =====================================================
+' → Додає до діалогу мітку та ListBox з попередньо вибраним елементом.
+'
+' → Параметри:
+'     NamePrefix    — префікс імені для Label і ListBox.
+'     LabelText     — текст мітки.
+'     PositionX/Y   — координати розташування.
+'     SelectedItem  — елемент, який буде вибраний за замовчуванням.
+'     WidthLabel    — ширина мітки.
+'     WidthList     — ширина ListBox.
+'     ListOfPlaces  — список варіантів через крапку з комою.
+'
+' → Створює та додає два компоненти в модель діалогу:
+'     Label (FixedTextModel) і List (ListBoxModel).
+Sub ListBoxTemplate(oDialogModel As Object, _
+                    NamePrefix   As String, _
+                    LabelText    As String, _
+                    PositionX    As Integer, _
+                    PositionY    As Integer, _
+                    SelectedItem As String, _
+                    WidthLabel   As Integer, _
+                    WidthList    As Integer, _
+                    ListOfPlaces As String)
+
+    ' ==== Мітка ====
+    Dim oLabel As Object
+    oLabel = oDialogModel.createInstance("com.sun.star.awt.UnoControlFixedTextModel")
+    oLabel.Name = NamePrefix & "Label"
+    oLabel.Label = LabelText
+    oLabel.PositionX = PositionX
+    oLabel.PositionY = PositionY - 10
+    oLabel.Width = WidthLabel
+    oLabel.Height = 10
+    oLabel.TextColor = pRGB(TEXT_COLOR)
+    oDialogModel.insertByName(oLabel.Name, oLabel)
+
+    ' ==== ListBox ====
+    Dim oList As Object
+    oList = oDialogModel.createInstance("com.sun.star.awt.UnoControlListBoxModel")
+    oList.Name = NamePrefix & "List"
+    oList.PositionX = PositionX
+    oList.PositionY = PositionY
+    oList.Width = WidthList
+    oList.Height = 50  ' Показати кілька пунктів одразу
+    oList.StringItemList = Split(ListOfPlaces, ";")
+    
+    ' Встановити обране значення
+    Dim i As Integer
+    For i = 0 To UBound(oList.StringItemList)
+        If oList.StringItemList(i) = SelectedItem Then
+            oList.SelectedItems = Array(i)
+            Exit For
+        End If
+    Next i
+
+    oDialogModel.insertByName(oList.Name, oList)
+End Sub
+
+' =====================================================
+' === Процедура DemoListBoxDialog ======================
+' =====================================================
+' → Демонструє створення діалогу з ListBox, заповненим пунктами населених місць.
+'
+' → Використовує ListBoxTemplate для побудови елементів.
+' → Створює діалог, встановлює розміри, позицію і заголовок.
+' → Встановлює "Київ" як попередньо вибраний пункт.
+' → Після виконання — знищує діалог.
+Sub DemoListBoxDialog()
+    Dim oDialog As Object, oDialogModel As Object
+    Dim sTitle As String
+    sTitle = "Діалог з ListBox"
+
+    ' ==== Створення діалогу ====
+    oDialog = CreateUnoService("com.sun.star.awt.UnoControlDialog")
+    oDialogModel = CreateUnoService("com.sun.star.awt.UnoControlDialogModel")
+    oDialog.setModel(oDialogModel)
+
+    With oDialogModel
+        .PositionX = 100
+        .PositionY = 100
+        .Width     = 150
+        .Height    = 100
+        .Title     = sTitle
+    End With
+
+    ' ==== Параметри ====
+    Dim x As Long, y As Long
+    x = 10 : y = 10
+
+    ' ==== Додавання ListBox ====
+    Call ListBoxTemplate(oDialogModel, _
+                         "Place", _
+                         "Населений пункт:", _
+                         x, y, _
+                         "Київ", _
+                         60, 70, _
+                         "Київ;Львів;Одеса;Харків;Дніпро")
+
+    ' ==== Створення peer та виконання ====
+    oDialog.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
+    oDialog.execute()
+    oDialog.dispose()
 End Sub
 
 ' =====================================================
@@ -379,10 +484,9 @@ Sub DemoControls()
     AddTimeField(oDialogModel, "time", x, y, 70, h)
     y = y + 20
     AddLabel(oDialogModel, "LabelEdit", x, y, w, h, "Edit")    
-    y = y + 10 
-    AddEdit(oDialogModel, "Edit", x, y, 70, h)
-    oDialog.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
-    
+    y = y + 10
+    ' AddEdit(oDialogModel, "Edit", x, y, 70, h)
+  
     ' ==== Групова рамка з трьома елементами ====
     Dim gX As Long, gY As Long, gW As Long, gH As Long
     gX = x 
@@ -401,10 +505,33 @@ Sub DemoControls()
     innerY = innerY + 15
     AddCheckBox(oDialogModel, "CheckInGroup", innerX, innerY, 60, h, "Чек")
     innerY = innerY + 15
-    AddEdit(oDialogModel, "EditInGroup", innerX, innerY, 60, h)
+    'AddEdit(oDialogModel, "EditInGroup", innerX, innerY, 60, h)
+    AddComboBox(oDialogModel, "Combo", x, y + 80, w + 20, h + 3, Array(1,2,3,4))
     
+    oDialog.createPeer(CreateUnoService("com.sun.star.awt.ExtToolkit"), Null)
     oDialog.execute()
     oDialog.dispose()
+End Sub
+
+' =====================================================
+' === Процедура AddComboBox ===========================
+' =====================================================
+' → Додає на діалог комбінований список (ComboBox) зі значеннями.
+' → Дозволяє вибір або введення власного значення.
+Sub AddComboBox(m, n, x, y, w, h, arr)
+    Dim o
+    o = m.createInstance("com.sun.star.awt.UnoControlComboBoxModel")
+    o.Name = n
+    o.PositionX = x
+    o.PositionY = y
+    o.Width = w
+    o.Height = h
+    o.LineCount = 10
+    ' o.MaxTextLen = 30
+    o.Text = vText
+    ' o.Dropdown = True
+    o.StringItemList = arr
+    m.insertByName(n, o)
 End Sub
 
 ' =====================================================
@@ -467,19 +594,6 @@ End Sub
 Sub AddListBox(m, n, x, y, w, h, arr)
     Dim o
     o = m.createInstance("com.sun.star.awt.UnoControlListBoxModel")
-    o.Name = n : o.PositionX = x : o.PositionY = y : o.Width = w : o.Height = h
-    o.StringItemList = arr
-    m.insertByName(n, o)
-End Sub
-
-' =====================================================
-' === Процедура AddComboBox ===========================
-' =====================================================
-' → Додає на діалог комбінований список (ComboBox) зі значеннями.
-' → Дозволяє вибір або введення власного значення.
-Sub AddComboBox(m, n, x, y, w, h, arr)
-    Dim o
-    o = m.createInstance("com.sun.star.awt.UnoControlComboBoxModel")
     o.Name = n : o.PositionX = x : o.PositionY = y : o.Width = w : o.Height = h
     o.StringItemList = arr
     m.insertByName(n, o)
