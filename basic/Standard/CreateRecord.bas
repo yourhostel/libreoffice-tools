@@ -42,6 +42,10 @@ Sub ShowForm(sAction As String, Optional bEditMngr As Boolean) As String
     AddPlaceComboListeners(oDialog)
     AddFinListeners(oDialog)
     
+    AddDropdownToCombo(oDialog, "PlaceCombo")
+    AddDropdownToCombo(oDialog, "CodeCombo")
+    AddDropdownToCombo(oDialog, "DurationCombo")
+    
     ' === Кнопка "Вставити" ===
     oButtonInsert    = oDialog.getControl("InsertButton")
     ' === Обробник кнопки oButtonInsert ===
@@ -444,10 +448,11 @@ End Function
 ' =====================================================
 ' → Вставляє фінансові дані та коментар у таблицю (стовпці G, H, I).
 Sub FinanceInsertion(oSel As Object, oDialog As Object)
-    Dim oSheet   As Object
-    Dim dExpense As Double
-	Dim dIncome  As Double
-    Dim dComment As String
+    Dim oSheet       As Object
+    Dim dExpense     As Double
+	Dim dIncome      As Double
+    Dim oComment     As Object
+    Dim oCellComment As Object
     
     ' ==== Отримання листа ====
     oSheet = oSel.Spreadsheet
@@ -455,7 +460,7 @@ Sub FinanceInsertion(oSel As Object, oDialog As Object)
     ' ==== Отримання значення з поля форми Expense, Income ====
     dExpense = Val(oDialog.getControl("ExpenseField").getText())
 	dIncome  = Val(oDialog.getControl("IncomeField").getText())
-	dComment = oDialog.getControl("CommentField").getText()
+	oComment = oDialog.getControl("CommentField")
 		
     ' ==== Вставка 'видаток' (індекс 6) ====
     oSheet.getCellByPosition(6, oSel.CellAddress.Row).setValue(Val(dExpense)) ' G 
@@ -464,7 +469,13 @@ Sub FinanceInsertion(oSel As Object, oDialog As Object)
     oSheet.getCellByPosition(7, oSel.CellAddress.Row).setValue(Val(dIncome))  ' H
     
     ' ==== Вставка 'коментар' (індекс 8) ====
-    oSheet.getCellByPosition(8, oSel.CellAddress.Row).setString(dComment)     ' I
+    oCellComment = oSheet.getCellByPosition(8, oSel.CellAddress.Row)          ' I
+     
+    If oComment.isVisible() Then 
+        oCellComment.setString(Trim(oComment.getText()))
+    Else
+       oCellComment.setString(" ")
+    End If   
 End Sub
 
 ' =====================================================
